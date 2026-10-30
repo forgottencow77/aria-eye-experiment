@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source": "Horizontal: user-confirmed screenshots. Eyelid direction: actual Pi servo sync mapping (center=2000/1000 is open, closed endpoints=850/2200). Screen yaw/pitch follow the supplied front-view convention.",
+  "channels": {
+    "0": {
+      "min": 1200,
+      "max": 1700,
+      "endpoints": {
+        "up": 1200,
+        "down": 1700
+      }
+    },
+    "1": {
+      "min": 950,
+      "max": 2200,
+      "endpoints": {
+        "viewer_left": 950,
+        "viewer_right": 2200
+      }
+    },
+    "2": {
+      "min": 1100,
+      "max": 2000,
+      "endpoints": {
+        "viewer_left": 1100,
+        "viewer_right": 2000
+      }
+    },
+    "3": {
+      "min": 1450,
+      "max": 1950,
+      "endpoints": {
+        "down": 1450,
+        "up": 1950
+      }
+    },
+    "4": {
+      "min": 850,
+      "max": 2000,
+      "endpoints": {
+        "open_us": 2000,
+        "closed_us": 850
+      }
+    },
+    "5": {
+      "min": 1000,
+      "max": 2200,
+      "endpoints": {
+        "open_us": 1000,
+        "closed_us": 2200
+      }
+    }
+  }
+}

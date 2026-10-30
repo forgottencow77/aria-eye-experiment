@@ -1,0 +1,22 @@
+[Unit]
+Description=Project Aria legacy eye adjustment UI
+Requires=project-aria-servo.service
+After=network.target project-aria-servo.service
+
+[Service]
+Type=simple
+User=forgottencow
+WorkingDirectory=/home/forgottencow/eye-display/legacy-ui
+ExecStart=/usr/bin/python3 -B /home/forgottencow/eye-display/legacy-ui/legacy_ui_server.py --host 0.0.0.0 --port 8767
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+StateDirectory=project-aria-experiment
+Environment=ARIA_EXPERIMENT_DATA_DIR=/var/lib/project-aria-experiment
+EnvironmentFile=-/etc/project-aria-experiment/admin.env
+
+[Install]
+WantedBy=multi-user.target
