@@ -6,34 +6,66 @@
 <meta name="color-scheme" content="light">
 <title>管理者ページ | ARIA</title>
 <link rel="stylesheet" href="/experiment.css">
+<style>
+body.admin-slim { background:#f6f7f9 }
+.admin-slim .header-inner,.admin-slim main { max-width:900px }
+.admin-slim main { padding:22px 16px 48px }
+.admin-slim .admin-content { min-height:0; padding:0; background:transparent }
+.admin-slim .card,.admin-slim .advanced-panel { margin:0 0 14px; padding:22px 24px; background:#fff; border:1px solid var(--line); }
+.admin-slim .card { border-bottom:1px solid var(--line) }
+.admin-slim h1 { margin:0 0 16px; font-size:24px }
+.admin-slim h2 { font-size:18px; margin:0 0 14px }
+.admin-slim .advanced-panel>summary { cursor:pointer; font-weight:600 }
+.admin-slim .advanced-panel[open]>summary { margin-bottom:16px }
+.admin-slim #config { min-height:280px }
+.admin-slim #createdSession { margin-top:12px }
+.admin-slim #createdSession .alert { margin:8px 0 0 }
+.admin-slim .session { gap:10px }
+.admin-slim .table-wrap { margin-top:12px }
+.admin-slim .row label { min-width:76px }
+.admin-slim .status { margin-top:10px }
+@media(max-width:650px) {
+ .admin-slim .card,.admin-slim .advanced-panel { padding:18px 16px }
+ .admin-slim .row input { min-width:0; width:100% }
+}
+</style>
 </head>
-<body>
+<body class="admin-slim">
 <header><div class="header-inner"><div class="brand">管理者ページ</div><span class="tag">実機未接続</span></div></header>
 
-<main><section class="admin-content">
-
-  <div class="alert"><strong>設定値の確認</strong><span id="sourceNote">直近に確定したプリセットを読み込んでいます。</span><br>仕様書に貼られた初期値と直近の確定値には一部差があります。直近に確定した値を初期値として保持し、下のJSONで差分を確認・編集してからセッションを作成してください。瞼と上下視線はUI入力値をそのまま保存し、既存の実機対応を変換しません。</div>
-  <div class="grid">
-    <section class="card"><h2>設定スナップショット</h2>
-      <textarea id="config" aria-label="6感情と共通基準の設定JSON" spellcheck="false"></textarea>
-      <div class="row"><button class="button secondary" id="checkConfig">設定を検証・42枠を更新</button><span class="muted">保存設定の変更はセッション作成時にスナップショット化されます。</span></div>
-      <div id="configStatus" class="status" role="status"></div>
-      <div id="conditionStats" class="stats"></div>
-      <div id="duplicates"></div>
-    </section>
-    <section class="card"><h2>セッション作成</h2><div class="row"><label for="adminToken">管理者トークン</label><input id="adminToken" type="password" autocomplete="current-password" placeholder="Piの管理者設定から入力"><button class="button secondary" id="connectAdmin">管理APIへ接続</button></div><p class="muted">トークンはこのタブの間だけ保持します。未設定時は管理APIが利用できません。</p>
-      <div class="row"><label for="participantId">参加者ID</label><input id="participantId" autocomplete="off" maxlength="64" placeholder="例: P001"></div>
-      <div class="row"><label for="mode">種別</label><select id="mode"><option value="pilot">pilot</option><option value="main">main</option></select></div>
-      <p class="muted">名前などの個人情報は入力しないでください。管理者が確定するまで実験は開始されません。作成したセッションはこの設定版に固定されます。</p>
-      <button class="button" id="createSession">設定を固定してモックセッション作成</button>
-      <div id="createStatus" class="status" role="status" style="margin-top:12px"></div>
-      <div id="createdSession"></div>
-    </section>
-    <section class="card wide"><h2>42提示枠</h2><p class="muted">各感情につき C（虹彩色）・L（上瞼）・G（視線）・CL・CG・LG・CLG。選ばれていない要素は共通基準 B₀を使います。</p><div id="slots" class="table-wrap"></div></section>
-    <section class="card wide"><h2>保存済みセッション</h2><div id="sessions" class="muted">読み込み中…</div></section>
-  </div>
+<main><div class="admin-content">
+<section class="card" aria-labelledby="createTitle">
+  <h1 id="createTitle">新しい実験</h1>
+  <div class="row"><label for="participantId">参加者ID</label><input id="participantId" autocomplete="off" maxlength="64" placeholder="P001"></div>
+  <div class="row"><label for="mode">種別</label><select id="mode"><option value="pilot">予備実験</option><option value="main">本実験</option></select></div>
+  <button class="button" id="createSession">作成する</button>
+  <div id="createStatus" class="status" role="status"></div>
+  <div id="createdSession"></div>
 </section>
-</main>
+<section class="card" aria-labelledby="sessionsTitle">
+  <h2 id="sessionsTitle">保存済みセッション</h2>
+  <div id="sessions" class="muted">読み込み中…</div>
+</section>
+<details class="advanced-panel" id="advancedSettings">
+  <summary>詳細設定</summary>
+  <p class="muted" id="sourceNote">設定を読み込み中…</p>
+  <label for="config">表情設定（JSON）</label>
+  <textarea id="config" aria-label="6感情と共通基準の設定JSON" spellcheck="false"></textarea>
+  <div class="row"><button class="button secondary" id="checkConfig">条件を更新</button></div>
+  <div id="configStatus" class="status" role="status"></div>
+  <div id="conditionStats" class="stats"></div>
+  <div id="duplicates"></div>
+  <details style="margin-top:18px">
+    <summary>42条件の一覧</summary>
+    <div id="slots" class="table-wrap"></div>
+  </details>
+</details>
+<details class="advanced-panel" id="connectionSettings">
+  <summary>接続設定</summary>
+  <div class="row"><label for="adminToken">管理者トークン</label><input id="adminToken" type="password" autocomplete="off" placeholder="必要な場合のみ"><button class="button secondary" id="connectAdmin">再接続</button></div>
+  <p class="muted">現在のサーバー設定でトークンが必要な場合に入力してください。</p>
+</details>
+</div></main>
 <script>
 const $=id=>document.getElementById(id);let defaultConfig=null;let validatedConfig=null;let specSnapshot=null;
 const names={anger:'怒り',disgust:'嫌悪',fear:'恐れ',joy:'喜び',sadness:'悲しみ',surprise:'驚き'};
@@ -49,7 +81,7 @@ function renderSlots(config){const factors=['C','L','G','CL','CG','LG','CLG'];co
 function specDiffs(current,snapshot){const differences=[];for(const [id,row] of [['neutral',current.neutral],...Object.entries(current.emotions)]){const old=id==='neutral'?snapshot.neutral:snapshot.emotions[id];for(const key of Object.keys(row))if(row[key]!==old[key])differences.push(`${id==='neutral'?'B₀':names[id]} ${key}: 現在 ${row[key]} / 仕様書 ${old[key]}`)}return differences}
 function bindExport(link){link.addEventListener('click',async event=>{event.preventDefault();try{const token=$('adminToken').value||sessionStorage.getItem('aria-experiment-admin-token')||'';const response=await fetch(link.href,{headers:{'X-Aria-Admin-Token':token}});if(!response.ok){const body=await response.json();throw new Error(body.error||'エクスポートに失敗しました。')}const blob=await response.blob();const temporary=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=temporary;anchor.download=link.dataset.filename;anchor.click();setTimeout(()=>URL.revokeObjectURL(temporary),1000)}catch(error){$('createStatus').textContent=error.message;$('createStatus').className='status error'}})}
 async function refreshSessions(){const data=await api('/api/experiment/sessions');const root=$('sessions');root.replaceChildren();if(!data.sessions.length){root.textContent='保存済みセッションはありません。';return}for(const session of data.sessions){const row=document.createElement('div');row.className='session';const info=document.createElement('div');info.innerHTML=`<div class="session-title"></div><div class="muted"></div>`;info.firstChild.textContent=`${session.participant_id} · ${session.mode} · ${session.status}`;info.lastChild.textContent=`${session.session_id} · 設定 ${session.configuration_version} · ${session.next_index??0}/42`;const actions=document.createElement('div');actions.className='session-actions';const participant=document.createElement('a');participant.href=session.participant_url;participant.textContent='参加者画面';const csv=document.createElement('a');csv.href=`/api/experiment/export/${encodeURIComponent(session.session_id)}.csv`;csv.dataset.filename=`${session.session_id}.csv`;csv.textContent='CSV';bindExport(csv);const json=document.createElement('a');json.href=`/api/experiment/export/${encodeURIComponent(session.session_id)}.json`;json.dataset.filename=`${session.session_id}.json`;json.textContent='JSON';bindExport(json);actions.append(participant,csv,json);row.append(info,actions);root.append(row)}}
-async function init(){try{$('adminToken').value=sessionStorage.getItem('aria-experiment-admin-token')||'';$('adminToken').addEventListener('input',()=>sessionStorage.setItem('aria-experiment-admin-token',$('adminToken').value));const data=await api('/api/experiment/default-config');defaultConfig=structuredClone(data.config);specSnapshot=data.spec_snapshot;const usedSaved=mergeSavedBrowserSettings(defaultConfig);$('config').value=JSON.stringify(defaultConfig,null,2);$('sourceNote').textContent=usedSaved?'このブラウザに保存された現在の手動調整値を反映しました。未保存・別ブラウザの値は含まれません。':'直近に確定したデフォルト値を使用しています。このブラウザに保存された手動調整値はありません。';const diffs=specDiffs(defaultConfig,specSnapshot);if(diffs.length){const box=document.createElement('div');box.className='duplicate';box.textContent='仕様書に貼られた初期値との差（初期設定は直近確定値を維持）: '+diffs.join(' / ');$('sourceNote').append(document.createElement('br'),box)}renderConfig();await refreshSessions()}catch(error){$('configStatus').textContent=error.message;$('configStatus').className='status error'}}
+async function init(){try{$('adminToken').value=sessionStorage.getItem('aria-experiment-admin-token')||'';$('adminToken').addEventListener('input',()=>sessionStorage.setItem('aria-experiment-admin-token',$('adminToken').value));const data=await api('/api/experiment/default-config');defaultConfig=structuredClone(data.config);specSnapshot=data.spec_snapshot;const usedSaved=mergeSavedBrowserSettings(defaultConfig);$('config').value=JSON.stringify(defaultConfig,null,2);$('sourceNote').textContent=usedSaved?'このブラウザの保存値を読み込みました。':'初期設定を読み込みました。';const diffs=specDiffs(defaultConfig,specSnapshot);if(diffs.length){const box=document.createElement('div');box.className='duplicate';box.textContent='仕様書に貼られた初期値との差（初期設定は直近確定値を維持）: '+diffs.join(' / ');$('sourceNote').append(document.createElement('br'),box)}renderConfig();await refreshSessions()}catch(error){$('configStatus').textContent=error.message;$('configStatus').className='status error';$('createStatus').textContent='接続または設定の読み込みに失敗しました。';$('createStatus').className='status error';$('connectionSettings').open=true}
 $('checkConfig').addEventListener('click',renderConfig);$('config').addEventListener('input',()=>{validatedConfig=null});
 $('connectAdmin').addEventListener('click',()=>void init());
 $('createSession').addEventListener('click',async()=>{const button=$('createSession');button.disabled=true;$('createStatus').textContent='設定を確認しています…';try{const config=readConfig();const created=await api('/api/experiment/session/create',{participant_id:$('participantId').value.trim(),mode:$('mode').value,config});const session=created.session;const link=location.origin+session.participant_url;$('createStatus').textContent='設定を固定しました。実機は動かしていません。';$('createdSession').innerHTML='';const box=document.createElement('div');box.className='alert';const title=document.createElement('strong');title.textContent=`${session.participant_id} · ${session.mode} · 設定版 ${session.configuration_version}`;const p=document.createElement('p');p.textContent=`物理状態 ${new Set(session.trials.map(t=>t.physical_state_id)).size} 種 / 42提示枠 · シード ${session.random_seed}`;const a=document.createElement('a');a.href=link;a.textContent='参加者画面を開く';const copy=document.createElement('button');copy.className='button secondary';copy.textContent='参加者リンクをコピー';copy.addEventListener('click',()=>navigator.clipboard.writeText(link).then(()=>copy.textContent='コピーしました'));const csv=document.createElement('a');csv.href=`/api/experiment/export/${encodeURIComponent(session.session_id)}.csv`;csv.dataset.filename=`${session.session_id}.csv`;csv.textContent=' CSV';bindExport(csv);const json=document.createElement('a');json.href=`/api/experiment/export/${encodeURIComponent(session.session_id)}.json`;json.dataset.filename=`${session.session_id}.json`;json.textContent=' JSON';bindExport(json);box.append(title,p,a,document.createTextNode(' · '),copy,document.createTextNode(' · '),csv,json);$('createdSession').append(box);await refreshSessions()}catch(error){$('createStatus').textContent=error.message;$('createStatus').className='status error'}finally{button.disabled=false}});
