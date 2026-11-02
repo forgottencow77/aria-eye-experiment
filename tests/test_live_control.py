@@ -9,7 +9,7 @@ from legacy_ui_server import Controller, Rejected
 from live_control import LiveController, LiveControlError, resolve_ipv4_base_url
 
 LIMITS = json.loads((Path(__file__).resolve().parents[1] / "limits.json").read_text())["channels"]
-HOMES = [1600, 1450, 1600, 1550, 2000, 1000, 1450, 1450, 1500, 1500]
+HOMES = [1600, 1450, 1600, 1550, 850, 2200, 1450, 1450, 1500, 1500]
 
 
 class FakeHardware:
@@ -97,7 +97,7 @@ class LiveControlTests(unittest.TestCase):
     def test_eyelid_open_close_and_midpoint_match_installed_direction(self):
         from test_servo_eye_only import servo
         token = self.start()
-        for sequence, (openness, expected) in enumerate([(0, (850, 2200)), (0.5, (1425, 1600)), (1, (2000, 1000))], 1):
+        for sequence, (openness, expected) in enumerate([(0, (2000, 1000)), (0.5, (1425, 1600)), (1, (850, 2200))], 1):
             with self.subTest(openness=openness):
                 self.live.input({"token": token, "sequence": sequence, "pose": {"x": 0, "y": 0, "openness": openness}})
                 command = self.hardware.writes[-1][1]
@@ -114,7 +114,7 @@ class LiveControlTests(unittest.TestCase):
         self.live.stop({"token": token})
         command = self.hardware.writes[-1][1]
         frame = servo.ServoRig._target_for_pose(None, {**command["gaze"], "blink": command["blink"]}, eye_only=True)
-        self.assertEqual((frame[4], frame[5]), (2000, 1000))
+        self.assertEqual((frame[4], frame[5]), (850, 2200))
 
     def test_color_does_not_send_servo_commands_or_change_pupil_size(self):
         token = self.start()
@@ -187,7 +187,7 @@ class LiveControlTests(unittest.TestCase):
     def test_position_is_read_from_values_not_stale_sync_metadata(self):
         self.hardware.state["sync"]["pose"] = {"x": 1, "y": -1, "blink": 1}
         self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})
-        self.hardware.state["values"].update({"0": 1200, "1": 950, "2": 1100, "3": 1950, "4": 850, "5": 2200})
+        self.hardware.state["values"].update({"0": 1200, "1": 950, "2": 1100, "3": 1950, "4": 2000, "5": 1000})
         self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 0})
 
 
