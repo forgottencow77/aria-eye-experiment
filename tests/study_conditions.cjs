@@ -28,9 +28,15 @@ const run=source=>vm.runInContext(source,context);
   assert.equal(element('previousCondition').disabled,true);
   assert.equal(writes.filter(w=>w.path.startsWith('/api/live/')).length,0,'Selecting review must not actuate');
   assert.match(element('conditionProgress').textContent,/1 \/ 42/);
-  await run('applyToDevice()');
+  await run('displayInspectionBaseline(true)');
   // Complete the asynchronous initial send before stepping through all slots.
   await new Promise(resolve=>setImmediate(resolve));
+  const baseline=fixture.config.neutral;
+  const b0sent=writes.filter(w=>w.path==='/api/live/input').at(-1).body;
+  assert.equal(b0sent.irisColor,baseline.iris_hex);
+  assert.deepEqual(b0sent.pose,{x:baseline.gaze_horizontal_deg/20,y:baseline.gaze_vertical_deg/20,openness:1-baseline.eyelid_open_percent/100});
+  assert.equal(element('selectedEmotion').textContent,'共通基準 B₀');
+  await run('displayInspectionBaseline(false)');
   for(let i=0;i<42;i++){
     const trial=JSON.parse(run('JSON.stringify(currentTrial())'));
     const expected=fixture.trials.find(t=>t.trial_slot_id===trial.trial_slot_id).actual_target_values;
@@ -58,5 +64,7 @@ const run=source=>vm.runInContext(source,context);
   assert.equal(run('deviceToken'),null);assert.equal(element('adjuster').hidden,false);
   assert.equal(element('conditionControls').hidden,true);
   assert.equal(writes.filter(w=>w.path==='/api/live/stop').length,1);
+  await run('saveServerSettings()');
+  assert.deepEqual(writes.filter(w=>w.path==='/api/experiment/config').at(-1).body,{config:saved});
   console.log('PASS: 42 condition payloads, B0 substitution, navigation, immutable settings, explicit activation and stop');
 })().catch(error=>{console.error(error);process.exitCode=1});

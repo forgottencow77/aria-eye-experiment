@@ -30,6 +30,7 @@
       <option value="CL">色＋瞼</option><option value="CG">色＋視線</option><option value="LG">瞼＋視線</option><option value="CLG">色＋瞼＋視線</option>
     </select></p>
     <p><button id="previousCondition" class="secondary">前へ</button> <output id="conditionProgress" aria-live="polite"></output> <button id="nextCondition" class="secondary">次へ</button></p>
+    <p><button id="showBaseline" class="secondary">B₀を実機で表示</button><button id="showCondition" class="secondary">選択中の条件を表示</button></p>
     <p id="conditionFactors"></p><p id="conditionDuplicates" class="notice"></p>
     <p class="notice">実機操作中は選んだ条件を保持します。自動では進みません。「正面・開眼へ戻す」で終了します。</p>
   </section>
@@ -97,14 +98,14 @@ const SETTINGS_KEY='aria-emotion-settings-v2';
 let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:40,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
 let serverConfigTimer=0,serverConfigSave=Promise.resolve();
 const CONDITION_ORDER=['C','L','G','CL','CG','LG','CLG'];
-let inspectionTrials=[],inspectionConfig=null,conditionFactors='C',inspectionLoading=false;
+let inspectionTrials=[],inspectionConfig=null,conditionFactors='C',inspectionLoading=false,displayBaseline=false;
 function isInspection(){return el('studyMode').value==='conditions'}
 function currentTrial(){return inspectionTrials.find(row=>row.intended_emotion===emotion.id&&row.factors.join('')===conditionFactors)}
-function selectedLabel(){return emotion.name+(isInspection()?' / '+conditionFactors:'')}
+function selectedLabel(){if(isInspection()&&displayBaseline)return '共通基準 B₀';return emotion.name+(isInspection()?' / '+conditionFactors:'')}
 function saveServerSettings(){
   clearTimeout(serverConfigTimer);serverConfigTimer=0;
   const config=buildServerConfig();
-  serverConfigSave=serverConfigSave.catch(()=>{}).then(()=>api('/api/experiment/config',config));
+  serverConfigSave=serverConfigSave.catch(()=>{}).then(()=>api('/api/experiment/config',{config}));
   return serverConfigSave;
 }
 function boundedSetting(value,low,high,fallback){const number=Number(value);return Number.isFinite(number)?Math.max(low,Math.min(high,number)):fallback}
@@ -158,7 +159,7 @@ function gazeLabel(value,positive,negative){
 }
 function currentSettings(){
   if(!isInspection()||!currentTrial())return settingsByEmotion[emotion.id];
-  const row=currentTrial().actual_target_values;
+  const row=displayBaseline?inspectionConfig.neutral:currentTrial().actual_target_values;
   return {irisHex:row.iris_hex,hsv:hexHsv(row.iris_hex),lid:row.eyelid_open_percent/100,gaze:[row.gaze_horizontal_deg,row.gaze_vertical_deg]};
 }
 function renderConditions(){
@@ -172,6 +173,9 @@ function renderConditions(){
   el('previousCondition').disabled=index<=0||inspectionLoading;
   el('nextCondition').disabled=index<0||index>=inspectionTrials.length-1||inspectionLoading;
   el('conditionSelect').disabled=inspectionLoading;
+  el('showBaseline').disabled=inspectionLoading||!DEVICE_MODE;
+  el('showCondition').disabled=inspectionLoading||!DEVICE_MODE;
+  el('showBaseline').setAttribute('aria-pressed',String(displayBaseline));
   el('conditionFactors').textContent=['C','L','G'].map((factor,i)=>['色','瞼','視線'][i]+': '+(conditionFactors.includes(factor)?'ON（感情の値）':'OFF（B₀）')).join(' / ');
   const duplicates=trial?inspectionTrials.filter(row=>row!==trial&&row.physical_state_id===trial.physical_state_id):[];
   el('conditionDuplicates').textContent=duplicates.length?'同じ設定の条件: '+duplicates.map(row=>row.trial_slot_id).join('、'):'';
@@ -179,7 +183,7 @@ function renderConditions(){
   el('baselineValues').textContent=base.iris_hex+' · 瞼UI値 '+base.eyelid_open_percent+'% · 左右 '+base.gaze_horizontal_deg+'° · 上下 '+base.gaze_vertical_deg+'°';
 }
 async function changeStudyMode(){
-  inspectionLoading=true;renderSelected();
+  displayBaseline=false;inspectionLoading=true;renderSelected();
   try{
     await releaseDevice();
     if(isInspection()){
@@ -198,6 +202,7 @@ function stepCondition(delta){
   const index=inspectionTrials.indexOf(currentTrial());
   const trial=inspectionTrials[index+delta];
   if(!trial||inspectionLoading)return;
+  displayBaseline=false;
   emotion=EMOTIONS.find(item=>item.id===trial.intended_emotion);
   conditionFactors=trial.factors.join('');render();queueDeviceUpdate();
 }
@@ -272,7 +277,7 @@ function queueDeviceUpdate(){
 async function flushDeviceUpdate(){
   if(deviceUpdateBusy||!deviceUpdatePending||!deviceToken)return;
   deviceUpdateBusy=true;deviceUpdatePending=false;
-  try{await sendDeviceState();controlError='';el('notice').textContent=isInspection()?'実機操作中です。選んだ条件を保持しています。前へ・次へで切り替えられます。':'実機操作中です。色・瞼・視線のスライダーが実機へ追従します。'}
+  try{await sendDeviceState();controlError='';el('notice').textContent=isInspection()?'実機操作中です。'+selectedLabel()+'を保持しています。前へ・次へで切り替えられます。':'実機操作中です。色・瞼・視線のスライダーが実機へ追従します。'}
   catch(error){
     controlError=error.message||'実機との接続が切れました';
     const old=deviceToken;deviceToken=null;appliedEmotion=null;
@@ -320,6 +325,7 @@ async function releaseDevice(){
 el('emotions').addEventListener('click',function(event){
   const button=event.target.closest('[data-emotion]');
   if(!button||inspectionLoading)return;
+  displayBaseline=false;
   emotion=EMOTIONS.find(item=>item.id===button.dataset.emotion);
   controlError='';render();queueDeviceUpdate();
 });
@@ -330,7 +336,14 @@ el('resetParams').addEventListener('click',function(){
   saveSettings();controlError='';renderSelected();queueDeviceUpdate();
 });
 el('studyMode').addEventListener('change',()=>{void changeStudyMode()});
-el('conditionSelect').addEventListener('change',()=>{conditionFactors=el('conditionSelect').value;renderSelected();queueDeviceUpdate()});
+el('conditionSelect').addEventListener('change',()=>{displayBaseline=false;conditionFactors=el('conditionSelect').value;renderSelected();queueDeviceUpdate()});
+async function displayInspectionBaseline(baseline){
+  if(!isInspection()||inspectionLoading)return;
+  displayBaseline=baseline;renderSelected();
+  if(deviceToken){queueDeviceUpdate()}else{await applyToDevice()}
+}
+el('showBaseline').addEventListener('click',()=>{void displayInspectionBaseline(true)});
+el('showCondition').addEventListener('click',()=>{void displayInspectionBaseline(false)});
 el('previousCondition').addEventListener('click',()=>stepCondition(-1));
 el('nextCondition').addEventListener('click',()=>stepCondition(1));
 el('applyButton').addEventListener('click',function(){void applyToDevice()});

@@ -40,6 +40,12 @@ The systemd unit currently binds the web UI to all Pi interfaces. Use a dedicate
 
 Mock mode is the default and sends no actuator commands. Hardware mode first checks that the Pi servo and LCD services respond, then sends poses through the existing live-control lease after the participant consents and starts the first presentation. The browser keeps the lease alive during presentation; disconnect, abort, and session completion release it. Existing servo calibration and channel limits remain in force.
 
+Hardware heartbeat monitoring starts after baseline acquisition and treats `active: false` as a lost lease.
+The server also checks lease ownership at subsequent presentation phases; it does not silently
+reacquire control midway through a presentation. A failed attempt is marked invalid and requires
+explicit replay before an answer can be accepted. Heartbeats stop after presentation completes,
+so ordinary loss of the lease while answering does not invalidate an already completed presentation.
+
 Hardware events record command request and controller acceptance times. The servo system has no position feedback, so the saved data does not claim that the physical eyes reached a pose at a particular time. Test hardware mode with a pilot session before using it for participants.
 
 The study page saves manual emotion settings to the Pi. The values remain in the same UI convention used for adjustment; conversion to normalized servo openness happens only when a hardware command is sent.
@@ -64,6 +70,9 @@ or create participant responses.
 
 Press **実機操作を開始** to send the selected condition. While active, changing the
 selection sends the next condition and holds it until another selection or stop.
+**B₀を実機で表示** presents and holds the frozen baseline (including its color, eyelid and gaze).
+**選択中の条件を表示** returns to the selected stimulus without advancing the slot.
+These buttons explicitly start hardware control if it is not already active.
 **正面・開眼へ戻す** ends control using the existing stop behavior. Switching modes
 also ends control. This is a manual inspection tool, not the timed 0.5/3-second
 experiment sequence. To refresh the configuration snapshot, switch back to the

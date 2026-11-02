@@ -145,6 +145,26 @@ class LiveControlTests(unittest.TestCase):
                 for key in ("x", "y", "openness"):
                     self.assertAlmostEqual(reported[key], payload["pose"][key], delta=0.001)
 
+    def test_experiment_lease_loss_is_not_silently_reacquired(self):
+        from experiment_engine import DEFAULT_CONFIG
+        from legacy_ui_server import ExperimentHardware
+        hardware = ExperimentHardware(self.controller)
+        session = {"session_id": "lease-test", "configuration": DEFAULT_CONFIG}
+        current = {"visual": DEFAULT_CONFIG["emotions"]["anger"]}
+        hardware.actuate(session, current, "instruction")
+        self.assertFalse(hardware.keepalive("lease-test")["active"])
+        hardware.actuate(session, current, "baseline")
+        self.assertTrue(hardware.keepalive("lease-test")["active"])
+        self.live.stop({"token": hardware.token})
+        count = len(self.hardware.writes)
+        for event in ("transition", "target", "return", "response"):
+            with self.subTest(event=event), self.assertRaises(LiveControlError):
+                hardware.actuate(session, current, event)
+        self.assertEqual(len(self.hardware.writes), count)
+        self.assertIsNone(self.live.token)
+        hardware.actuate(session, current, "baseline")
+        self.assertTrue(hardware.keepalive("lease-test")["active"])
+
     def test_stop_returns_to_centered_open_pose(self):
         from test_servo_eye_only import servo
         token = self.start()

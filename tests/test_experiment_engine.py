@@ -58,6 +58,36 @@ class ExperimentEngineTests(unittest.TestCase):
             self.clock.advance(0.5)
         return self.store.answer(session_id, token, emotion, confidence, 1234)
 
+    def test_failed_presentation_requires_replay_before_answer(self):
+        sid, token = self.create_running()
+        self.store.begin_trial(sid, token)
+        for event in EVENT_ORDER:
+            self.store.event(sid, token, event)
+        self.store.record_error(sid, token, "lease lost")
+        with self.assertRaises(ExperimentError):
+            self.store.answer(sid, token, "anger", 3, 1000)
+        with self.assertRaises(ExperimentError):
+            self.store.event(sid, token, "response")
+        stimulus = self.store.begin_trial(sid, token, replay=True)
+        self.assertEqual(stimulus["attempt"], 2)
+        for event in EVENT_ORDER:
+            self.store.event(sid, token, event)
+        self.store.answer(sid, token, "anger", 3, 1000)
+        self.assertEqual(self.store._session(sid)["practice"]["errors"][0]["attempt"], 1)
+
+    def test_hardware_failure_invalidates_attempt_even_without_client_error_post(self):
+        sid, token = self.create_running()
+        self.store._session(sid)["hardware_mode"] = "hardware"
+        self.store.begin_trial(sid, token)
+        def disconnected(*args):
+            raise RuntimeError("lease lost")
+        with self.assertRaises(RuntimeError):
+            self.store.event(sid, token, "instruction", disconnected)
+        self.assertEqual(self.store._session(sid)["current_trial"]["phase"], "error")
+        self.assertEqual(self.store._session(sid)["practice"]["status"], "invalid")
+        with self.assertRaises(ExperimentError):
+            self.store.answer(sid, token, "anger", 3, 1000)
+
     def test_latest_confirmed_defaults_are_used_and_old_candidate_values_are_not(self):
         self.assertEqual(DEFAULT_CONFIG["emotions"]["anger"]["gaze_vertical_deg"], 0)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["gaze_horizontal_deg"], 18)

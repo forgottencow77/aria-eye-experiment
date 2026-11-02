@@ -450,6 +450,8 @@ class ExperimentStore:
             current = session.get("current_trial")
             if not current or session["status"] != "running":
                 raise ExperimentError("進行中の試行がありません。")
+            if current["phase"] == "error":
+                raise ExperimentError("提示が中断されています。再提示してください。")
             expected = current["phase_index"]
             if expected >= len(EVENT_ORDER) or EVENT_ORDER[expected] != name:
                 if name in [event["event"] for event in current["events"]]:
@@ -460,7 +462,11 @@ class ExperimentStore:
             if session.get("hardware_mode", "mock") == "hardware":
                 if actuate is None:
                     raise ExperimentError("実機制御が利用できません。")
-                event["device_result"] = actuate(session, current, name)
+                try:
+                    event["device_result"] = actuate(session, current, name)
+                except Exception as error:
+                    self.record_error(session_id, token, str(error)[:240])
+                    raise
             else:
                 event["device_result"] = {"mode": "mock", "status": "not_sent"}
             current["events"].append(event)
@@ -571,7 +577,9 @@ class ExperimentStore:
             entry = {"message": message, "at": self.wall_clock()}
             if current:
                 trial = self._trial_for_current(session, current)
-                trial.setdefault("errors", []).append(entry)
+                trial.setdefault("errors", []).append({**entry, "attempt": current["attempt"]})
+                trial["status"] = "invalid"
+                current["phase"] = "error"
             else:
                 session["events"].append({"event": "ui_error", **entry})
             self._save()

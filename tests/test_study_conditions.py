@@ -16,3 +16,10 @@ class StudyConditionsTests(unittest.TestCase):
             ['node', 'tests/study_conditions.cjs'], cwd=root,
             input=json.dumps(fixture), text=True, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipUnless(shutil.which('node'), 'Node.js is needed to execute participant UI logic')
+    def test_participant_heartbeat_detects_lost_lease(self):
+        result = subprocess.run(
+            ['node', 'tests/participant_heartbeat.cjs'], cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -206,10 +206,15 @@ class ExperimentHardware:
             values = current["visual"]
         elif name == "return":
             values = session["configuration"]["neutral"]
-        if values is None:
-            return {"mode": "hardware", "status": "no_command", "event": name}
         session_id = session["session_id"]
         with self.lock:
+            # After baseline acquisition, a lost lease invalidates this attempt.
+            # Do not silently acquire a new lease halfway through a presentation.
+            if name not in ("instruction", "baseline"):
+                if not self.keepalive(session_id).get("active"):
+                    raise LiveControlError("実機の操作権が失われました。再提示してください。")
+            if values is None:
+                return {"mode": "hardware", "status": "no_command", "event": name}
             self.neutral = copy.deepcopy(session["configuration"]["neutral"])
             self._acquire(session_id)
             requested_at = utc_now()
@@ -426,8 +431,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _experiment_error(self, body):
         session_id, _ = self._participant_session(body)
+        result = self.experiments.record_error(session_id, body.get("access"), body.get("message"))
         self.hardware.stop(session_id)
-        return self.experiments.record_error(session_id, body.get("access"), body.get("message"))
+        return result
 
     @staticmethod
     def _admin_required(path, query):
