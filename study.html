@@ -59,7 +59,7 @@
       </section>
       <section class="baseline" aria-label="共通基準 B0">
         <div class="baseline-head"><strong>共通基準 B₀</strong><span>#BFBFBF · 上瞼65% · 下向き8°</span></div>
-        <p>灰色で色の連想を抑え、正面視線の怒り・喜びと条件が重ならないよう少し下向きにした案です。−8°が心理的に中立という根拠はありません。</p>
+        <p>灰色で色の連想を抑え、下8°を共通基準にしています。心理的に中立である根拠はありません。</p>
       </section>
       <p class="candidate-note">色と数値は予備実験用の候補です。感情との対応や実機での見え方は、まだ確立されたものではありません。</p>
       <div id="deviceControls" class="device-controls" hidden>
@@ -72,10 +72,10 @@
 </main>
 <script>
 const EMOTIONS=[
-  {id:'anger',name:'怒り',hsv:[0,70,75],lid:.55,gaze:[0,-10],intent:'赤色、上瞼55%、正面から少し下向きの視線で威圧や対峙を表す設定です。',caveat:'眉の形状は使わず、上瞼だけで怒りが伝わるかは未確認です。'},
-  {id:'disgust',name:'嫌悪',hsv:[110,70,75],lid:.68,gaze:[20,4],intent:'緑色と右20°・上4°の視線で、拒絶や忌避を表す狙いです。',caveat:'緑色の連想と具体的な視線角度は探索的です。鼻や口の特徴はありません。'},
-  {id:'fear',name:'恐れ',hsv:[260,70,75],lid:.05,gaze:[20,-10],intent:'青紫、右20°・下10°の視線。上瞼UI値5%は、実機写真で目が見開いていた入力値です。',caveat:'5%はUI入力値のまま保持し、反転・補正していません。恐れと驚きの区別は未検証です。'},
-  {id:'joy',name:'喜び',hsv:[45,70,75],lid:.31,gaze:[0,0],intent:'黄橙色と正面視線で、親しみや肯定を表す狙いです。上瞼31%は実機写真に合わせた設定です。',caveat:'頬や下瞼は動かないため、上瞼だけで笑顔が伝わるかは未確認です。'},
+  {id:'anger',name:'怒り',hsv:[0,70,75],lid:.55,gaze:[0,0],intent:'赤色、上瞼55%、正面視線で威圧や対峙を表す設定です。',caveat:'眉の形状は使わず、上瞼だけで怒りが伝わるかは未確認です。'},
+  {id:'disgust',name:'嫌悪',hsv:[110,70,75],lid:.55,gaze:[18,-20],intent:'緑色、上瞼55%、右18°・下20°の視線で拒絶や忌避を表す狙いです。',caveat:'緑色の連想と具体的な視線角度は探索的です。鼻や口の特徴はありません。'},
+  {id:'fear',name:'恐れ',hsv:[260,70,75],lid:.80,gaze:[20,5],intent:'青紫、上瞼80%、右20°・上5°の視線で警戒を表す設定です。',caveat:'恐れと驚きで見開いた目の特徴が重なるため、区別できるかは未検証です。'},
+  {id:'joy',name:'喜び',hsv:[45,70,75],lid:.31,gaze:[0,-20],intent:'黄橙色、上瞼31%、下20°の視線で親しみや肯定を表す狙いです。',caveat:'頬や下瞼は動かないため、上瞼だけで笑顔が伝わるかは未確認です。'},
   {id:'sadness',name:'悲しみ',hsv:[220,70,75],lid:.80,gaze:[0,5],intent:'青色、上瞼80%、視線は正面から上5°の実機設定です。',caveat:'上向きの眼球視線は、首をうつむける動きとは異なります。青色の効果は探索的です。'},
   {id:'surprise',name:'驚き',hsv:[185,70,75],lid:0,gaze:[0,0],intent:'水色、正面視線。上瞼UI値0%は、実機写真で目が見開いていた入力値です。',caveat:'0%はUI入力値のまま保持し、100%へ反転していません。感情認識の有効性は未確認です。'},
 ];
@@ -94,7 +94,7 @@ function loadSettings(){
     return [item.id,{hsv:[boundedSetting(hsv[0],0,359,item.hsv[0]),boundedSetting(hsv[1],0,100,item.hsv[1]),boundedSetting(hsv[2],0,100,item.hsv[2])],lid:boundedSetting(value.lid,0,1,item.lid),gaze:[boundedSetting(gaze[0],-20,20,item.gaze[0]),boundedSetting(gaze[1],-20,20,item.gaze[1])]}];
   }));
 }
-function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}if(DEVICE_MODE){clearTimeout(serverConfigTimer);serverConfigTimer=setTimeout(function(){api('/api/experiment/config',buildServerConfig()).catch(function(error){controlError='Piへの設定保存に失敗しました: '+error.message;renderSelected()})},350)}}
+function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}if(DEVICE_MODE){clearTimeout(serverConfigTimer);serverConfigTimer=setTimeout(function(){api('/api/experiment/config',buildServerConfig()).catch(function(error){controlError='サーバーへの設定保存に失敗しました: '+error.message;renderSelected()})},350)}}
 const settingsByEmotion=loadSettings();
 let deviceToken=null,deviceSequence=0,deviceHeartbeat=0,appliedEmotion=null;
 let deviceUpdateTimer=0,deviceUpdateBusy=false,deviceUpdatePending=false,controlError='';
@@ -128,7 +128,7 @@ function deviceState(item){
 }
 function gazeLabel(value,positive,negative){
   if(value===0)return '正面 0°';
-  return (value>0?positive:negative)+' '+(value>0?'+':'')+value+'°';
+  return (value>0?positive:negative)+' '+Math.abs(value)+'°';
 }
 function currentSettings(){return settingsByEmotion[emotion.id]}
 function renderEyes(settings){

@@ -46,15 +46,15 @@ DEFAULT_CONFIG = {
         "gaze_horizontal_deg": 0, "gaze_vertical_deg": -8,
     },
     "emotions": {
-        "anger": {"iris_hex": "#BF3939", "eyelid_open_percent": 55, "gaze_horizontal_deg": 0, "gaze_vertical_deg": -10},
-        "disgust": {"iris_hex": "#50BF39", "eyelid_open_percent": 68, "gaze_horizontal_deg": 20, "gaze_vertical_deg": 4},
-        "fear": {"iris_hex": "#6639BF", "eyelid_open_percent": 5, "gaze_horizontal_deg": 20, "gaze_vertical_deg": -10},
-        "joy": {"iris_hex": "#BF9E39", "eyelid_open_percent": 31, "gaze_horizontal_deg": 0, "gaze_vertical_deg": 0},
+        "anger": {"iris_hex": "#BF3939", "eyelid_open_percent": 55, "gaze_horizontal_deg": 0, "gaze_vertical_deg": 0},
+        "disgust": {"iris_hex": "#50BF39", "eyelid_open_percent": 55, "gaze_horizontal_deg": 18, "gaze_vertical_deg": -20},
+        "fear": {"iris_hex": "#6639BF", "eyelid_open_percent": 80, "gaze_horizontal_deg": 20, "gaze_vertical_deg": 5},
+        "joy": {"iris_hex": "#BF9E39", "eyelid_open_percent": 31, "gaze_horizontal_deg": 0, "gaze_vertical_deg": -20},
         "sadness": {"iris_hex": "#3966BF", "eyelid_open_percent": 80, "gaze_horizontal_deg": 0, "gaze_vertical_deg": 5},
         "surprise": {"iris_hex": "#39B4BF", "eyelid_open_percent": 0, "gaze_horizontal_deg": 0, "gaze_vertical_deg": 0},
     },
 }
-# Historical draft retained for comparison; DEFAULT_CONFIG is the later user-approved setting.
+# The previously confirmed settings are retained here for the admin API snapshot.
 SPEC_SNAPSHOT = {
     "neutral": {"iris_hex": "#BFBFBF", "eyelid_open_percent": 65, "gaze_horizontal_deg": 0, "gaze_vertical_deg": -8},
     "emotions": {

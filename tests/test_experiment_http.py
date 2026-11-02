@@ -68,7 +68,7 @@ class ExperimentHttpTests(unittest.TestCase):
         status, _, raw = self.request("/api/experiment/default-config", admin=True)
         self.assertEqual(status, 200)
         config = json.loads(raw)["config"]
-        self.assertEqual(config["emotions"]["fear"]["eyelid_open_percent"], 5)
+        self.assertEqual(config["emotions"]["fear"]["eyelid_open_percent"], 80)
 
         _, _, raw = self.request("/api/experiment/session/create", {
             "participant_id": "HTTP001", "mode": "main", "config": DEFAULT_CONFIG, "random_seed": 101,

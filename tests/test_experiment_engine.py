@@ -59,19 +59,19 @@ class ExperimentEngineTests(unittest.TestCase):
         return self.store.answer(session_id, token, emotion, confidence, 1234)
 
     def test_latest_confirmed_defaults_are_used_and_old_candidate_values_are_not(self):
-        self.assertEqual(DEFAULT_CONFIG["emotions"]["fear"]["eyelid_open_percent"], 5)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["fear"]["eyelid_open_percent"], 80)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["surprise"]["eyelid_open_percent"], 0)
-        self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["eyelid_open_percent"], 68)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["eyelid_open_percent"], 55)
         self.assertEqual(DEFAULT_CONFIG["neutral"]["gaze_vertical_deg"], -8)
 
     def test_factor_combinations_use_baseline_for_unselected_elements(self):
         gaze_only = _visual_state(DEFAULT_CONFIG, "fear", "G")
         self.assertEqual(gaze_only["iris_hex"], DEFAULT_CONFIG["neutral"]["iris_hex"])
         self.assertEqual(gaze_only["eyelid_open_percent"], DEFAULT_CONFIG["neutral"]["eyelid_open_percent"])
-        self.assertEqual(gaze_only["gaze_vertical_deg"], -10)
+        self.assertEqual(gaze_only["gaze_vertical_deg"], 5)
         combined = _visual_state(DEFAULT_CONFIG, "fear", "LG")
         self.assertEqual(combined["iris_hex"], DEFAULT_CONFIG["neutral"]["iris_hex"])
-        self.assertEqual(combined["eyelid_open_percent"], 5)
+        self.assertEqual(combined["eyelid_open_percent"], 80)
         self.assertEqual(combined["gaze_horizontal_deg"], 20)
 
     def test_42_slots_are_complete_deterministic_and_constrained(self):
