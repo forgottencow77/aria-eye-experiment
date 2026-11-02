@@ -166,16 +166,23 @@ class ExperimentStore:
         self.monotonic = monotonic
         self.lock = threading.RLock()
         self.sessions = {}
+        self.current_config = copy.deepcopy(DEFAULT_CONFIG)
+        self.config_initialized = False
         if self.path.exists():
             try:
                 loaded = json.loads(self.path.read_text(encoding="utf-8"))
                 self.sessions = loaded.get("sessions", {})
+                if "current_config" in loaded:
+                    self.current_config = validate_config(loaded["current_config"])
+                    self.config_initialized = bool(loaded.get("config_initialized", True))
             except (OSError, json.JSONDecodeError) as error:
                 raise ExperimentError(f"実験データを読み込めません: {error}") from error
 
     def _save(self):
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps({"schema_version": 1, "sessions": self.sessions}, ensure_ascii=False, indent=2)
+        payload = json.dumps({"schema_version": 1, "current_config": self.current_config,
+                              "config_initialized": self.config_initialized,
+                              "sessions": self.sessions}, ensure_ascii=False, indent=2)
         fd, temp_path = tempfile.mkstemp(prefix="sessions.", suffix=".tmp", dir=self.data_dir)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -195,12 +202,14 @@ class ExperimentStore:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
-    def create(self, participant_id, mode, config, seed=None):
+    def create(self, participant_id, mode, config=None, seed=None, hardware_mode="mock"):
         if not isinstance(participant_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", participant_id):
             raise ExperimentError("参加者IDは個人名を含まない英数字・ハイフン・アンダースコアで入力してください。")
         if mode not in ("pilot", "main"):
             raise ExperimentError("セッション種別は pilot または main です。")
-        config = validate_config(config)
+        if hardware_mode not in ("mock", "hardware"):
+            raise ExperimentError("提示先は mock または hardware を指定してください。")
+        config = validate_config(config if config is not None else self.current_config)
         if seed is None:
             seed = secrets.randbits(63)
         if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
@@ -213,7 +222,7 @@ class ExperimentStore:
             "session_id": session_id,
             "participant_id": participant_id,
             "mode": mode,
-            "hardware_mode": "mock",
+            "hardware_mode": hardware_mode,
             "status": "awaiting_consent",
             "created_at": self.wall_clock(),
             "started_at": None,
@@ -237,9 +246,30 @@ class ExperimentStore:
             "_participant_token": participant_token,
         }
         with self.lock:
+            self.current_config = copy.deepcopy(config)
+            self.config_initialized = True
             self.sessions[session_id] = session
             self._save()
         return self.admin_view(session), participant_token
+
+    def update_current_config(self, config):
+        config = validate_config(config)
+        with self.lock:
+            self.current_config = copy.deepcopy(config)
+            self.config_initialized = True
+            self._save()
+            return copy.deepcopy(self.current_config)
+
+    def get_current_config(self):
+        with self.lock:
+            return copy.deepcopy(self.current_config)
+
+    def get_config_state(self):
+        with self.lock:
+            return {"config": copy.deepcopy(self.current_config), "config_initialized": self.config_initialized}
+
+    def config_version(self):
+        return hashlib.sha256(_stable_json(self.get_current_config()).encode("utf-8")).hexdigest()[:12]
 
     def list_sessions(self):
         with self.lock:
@@ -293,6 +323,7 @@ class ExperimentStore:
                 }
             return {
                 "ok": True, "session_id": session_id, "status": session["status"],
+                "hardware_mode": session.get("hardware_mode", "mock"),
                 "consented": session["consent_at"] is not None,
                 "progress": {"completed": session["next_index"], "total": len(session["trials"])},
                 "practice_done": session["practice_response"] is not None,
@@ -393,7 +424,7 @@ class ExperimentStore:
                 "visual": copy.deepcopy(current["visual"]), "baseline": copy.deepcopy(session["configuration"]["neutral"]), "attempt": current["attempt"],
                 "progress": {"completed": session["next_index"], "total": len(session["trials"])}}
 
-    def event(self, session_id, token, name):
+    def event(self, session_id, token, name, actuate=None):
         if name not in EVENT_ORDER:
             raise ExperimentError("試行イベントが不正です。")
         with self.lock:
@@ -408,10 +439,22 @@ class ExperimentStore:
                 raise ExperimentError("試行イベントの順序が不正です。")
             event = {"event": name, "attempt": current["attempt"], "at": self.wall_clock(),
                      "monotonic_s": round(self.monotonic() - current["started_monotonic"], 6)}
+            if session.get("hardware_mode", "mock") == "hardware":
+                if actuate is None:
+                    raise ExperimentError("実機制御が利用できません。")
+                event["device_result"] = actuate(session, current, name)
+            else:
+                event["device_result"] = {"mode": "mock", "status": "not_sent"}
             current["events"].append(event)
             current["phase_index"] += 1
             current["phase"] = EVENT_ORDER[current["phase_index"]] if current["phase_index"] < len(EVENT_ORDER) else "answer"
             trial = self._trial_for_current(session, current)
+            if name == "transition":
+                result = event.get("device_result", {})
+                trial["target_command_at"] = result.get("command_requested_at", event["at"])
+                trial["target_command_accepted_at"] = result.get("command_accepted_at")
+            elif name == "target":
+                trial["target_hold_started_at"] = event["at"]
             trial.setdefault("attempts", []).append(copy.deepcopy(event))
             field_by_event = {
                 "instruction": "instruction_shown_at", "baseline": "baseline_at", "transition": "transition_started_at",
@@ -451,11 +494,16 @@ class ExperimentStore:
                         "confidence": confidence, "response_latency_ms": round(latency_ms),
                     },
                     "instruction_shown_at": timestamps.get("instruction"), "baseline_at": timestamps.get("baseline"),
-                    "transition_started_at": timestamps.get("transition"), "target_command_at": timestamps.get("target"),
+                    "transition_started_at": timestamps.get("transition"),
+                    "target_command_at": trial.get("target_command_at", timestamps.get("transition")),
+                    "target_command_accepted_at": trial.get("target_command_accepted_at"),
+                    "target_hold_started_at": trial.get("target_hold_started_at", timestamps.get("target")),
                     "return_command_at": timestamps.get("return"), "response_screen_at": timestamps.get("response"),
                     "timing_events": attempt_events,
                     "error": "; ".join(item["message"] for item in trial.get("errors", [])) or None,
-                    "device_result": {"mode": "mock", "status": "simulated"}, "replayed": current["attempt"] > 1,
+                    "device_result": {"mode": session.get("hardware_mode", "mock"),
+                                       "status": "commands_accepted" if session.get("hardware_mode") == "hardware" else "simulated",
+                                       "position_feedback": False}, "replayed": current["attempt"] > 1,
                     "attempt_count": current["attempt"],
                 })
                 session["next_index"] += 1
@@ -526,7 +574,7 @@ class ExperimentStore:
         with self.lock:
             session = self._session(session_id)
             output = io.StringIO(newline="")
-            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
+            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
             writer = csv.DictWriter(output, fieldnames=fields)
             writer.writeheader()
             for trial in session["trials"]:
@@ -546,7 +594,8 @@ class ExperimentStore:
                     "replayed": trial.get("replayed", False), "attempt_count": trial.get("attempt_count", 0),
                     "status": trial["status"], "error": trial.get("error"), "is_practice": False,
                 }
-                for key in ("instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "return_command_at", "response_screen_at"):
+                for key in ("instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at",
+                            "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at"):
                     row[key] = trial.get(key)
                 writer.writerow(row)
             return output.getvalue()
