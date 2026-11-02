@@ -200,7 +200,7 @@ function queueDeviceUpdate(){
 async function flushDeviceUpdate(){
   if(deviceUpdateBusy||!deviceUpdatePending||!deviceToken)return;
   deviceUpdateBusy=true;deviceUpdatePending=false;
-  try{await sendDeviceState();controlError=''}
+  try{await sendDeviceState();controlError='';el('notice').textContent='実機操作中です。色・瞼・視線のスライダーが実機へ追従します。'}
   catch(error){
     controlError=error.message||'実機との接続が切れました';
     const old=deviceToken;deviceToken=null;appliedEmotion=null;
@@ -223,16 +223,16 @@ async function applyToDevice(){
   if(!DEVICE_MODE||deviceToken)return;
   el('applyButton').disabled=true;controlError='';el('deviceStatus').textContent='実機へ接続中…';
   try{
-    const state=await api('/api/live/status');
-    if(state.active)throw new Error('別の画面が実機を操作中です。先にその画面を終了してください。');
     deviceToken=(await api('/api/live/start',{})).token;deviceSequence=0;startHeartbeat();
-    await sendDeviceState();
-    el('notice').textContent='実機操作中です。色・瞼・視線のスライダーが実機へ追従します。';
+    el('notice').textContent='操作権を取得しました。初期設定を実機へ送信しています…';
+    renderSelected();
+    deviceUpdatePending=true;
+    void flushDeviceUpdate();
   }catch(error){
     controlError=error.message;
     if(deviceToken){const old=deviceToken;deviceToken=null;if(deviceHeartbeat)clearInterval(deviceHeartbeat);deviceHeartbeat=0;try{await api('/api/live/stop',{token:old})}catch{}}
+    renderSelected();
   }
-  renderSelected();
 }
 async function releaseDevice(){
   if(deviceHeartbeat)clearInterval(deviceHeartbeat);deviceHeartbeat=0;
