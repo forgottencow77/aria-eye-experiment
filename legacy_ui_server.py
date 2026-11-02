@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 from live_control import LiveController, LiveControlError
-from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT, ExperimentError, ExperimentStore, generate_trials, validate_config
+from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT, ExperimentError, ExperimentStore, generate_trials, utc_now, validate_config
 
 ROOT = Path(__file__).resolve().parent
 EYE_IDS = frozenset(range(6))
@@ -146,8 +146,110 @@ class Controller:
             return self.public_state(self.upstream("/api/state"))
 
 
+class ExperimentHardware:
+    """Send explicitly enabled experiment poses through the existing live controller."""
+
+    def __init__(self, controller):
+        self.controller = controller
+        self.lock = threading.RLock()
+        self.session_id = None
+        self.token = None
+        self.sequence = 0
+        self.neutral = None
+
+    @staticmethod
+    def payload(values):
+        return {
+            "pose": {
+                "x": max(-1.0, min(1.0, float(values["gaze_horizontal_deg"]) / 20.0)),
+                "y": max(-1.0, min(1.0, float(values["gaze_vertical_deg"]) / 20.0)),
+                # The saved UI value runs opposite to physical openness: 0 is open, 100 is closed.
+                "openness": 1.0 - float(values["eyelid_open_percent"]) / 100.0,
+            },
+            "irisColor": values["iris_hex"],
+        }
+
+    def status(self):
+        try:
+            state = self.controller.live.status()
+        except Exception as error:
+            raise LiveControlError("Piのサーボまたは虹彩表示サービスに接続できません。") from error
+        return {"ok": True, "connected": True, "active": state["active"],
+                "pose": state["pose"], "irisColor": state["irisColor"]}
+
+    def preflight(self):
+        state = self.status()
+        if state["active"]:
+            raise LiveControlError("手動調整が動作中です。手動調整を終了してから実験を作成してください。")
+        return state
+
+    def _acquire(self, session_id):
+        live = self.controller.live
+        if self.session_id not in (None, session_id) and self.token and live.token == self.token:
+            raise LiveControlError("別の実験セッションが実機を操作中です。")
+        if self.token and live.token == self.token and self.session_id == session_id:
+            return
+        self.session_id = None
+        self.token = None
+        if live.token:
+            raise LiveControlError("手動調整が実機を操作中です。先に終了してください。")
+        self.token = live.start()["token"]
+        self.session_id = session_id
+        self.sequence = 0
+
+    def actuate(self, session, current, name):
+        values = None
+        if name == "baseline":
+            values = session["configuration"]["neutral"]
+        elif name == "transition":
+            values = current["visual"]
+        elif name == "return":
+            values = session["configuration"]["neutral"]
+        if values is None:
+            return {"mode": "hardware", "status": "no_command", "event": name}
+        session_id = session["session_id"]
+        with self.lock:
+            self.neutral = copy.deepcopy(session["configuration"]["neutral"])
+            self._acquire(session_id)
+            requested_at = utc_now()
+            self.sequence += 1
+            result = self.controller.live.input({"token": self.token, "sequence": self.sequence,
+                                                 **self.payload(values)})
+            return {"mode": "hardware", "status": "accepted", "event": name,
+                    "command_requested_at": requested_at, "command_accepted_at": utc_now(),
+                    "target_values": copy.deepcopy(values), "controller_sequence": result.get("sequence"),
+                    "position_feedback": False}
+
+    def keepalive(self, session_id):
+        with self.lock:
+            if self.session_id != session_id or not self.token or self.controller.live.token != self.token:
+                return {"ok": True, "active": False}
+            self.controller.live.keepalive({"token": self.token})
+            return {"ok": True, "active": True}
+
+    def stop(self, session_id):
+        with self.lock:
+            if self.session_id != session_id or not self.token:
+                return {"ok": True}
+            token = self.token
+            try:
+                if self.controller.live.token == token:
+                    if self.neutral:
+                        self.sequence += 1
+                        self.controller.live.input({"token": token, "sequence": self.sequence,
+                                                    **self.payload(self.neutral)})
+                    self.controller.live.stop({"token": token})
+            finally:
+                self.session_id = None
+                self.token = None
+                self.sequence = 0
+                self.neutral = None
+            return {"ok": True}
+
+
 class Handler(BaseHTTPRequestHandler):
     controller = None
+    hardware = None
     experiments = None
     admin_token = None
 
@@ -191,9 +293,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, self.controller.live.status())
             elif path == "/api/state":
                 self.send(200, self.controller.public_state(self.controller.upstream(path)))
+            elif path == "/api/experiment/hardware/status":
+                self.send(200, self.hardware.preflight())
+            elif path == "/api/experiment/config":
+                self.send(200, {"ok": True, **self.experiments.get_config_state()})
             elif path == "/api/experiment/default-config":
-                self.send(200, {"ok": True, "config": DEFAULT_CONFIG, "spec_snapshot": SPEC_SNAPSHOT,
-                                "source": "latest_user_confirmed_preset"})
+                self.send(200, {"ok": True, **self.experiments.get_config_state(),
+                                "spec_snapshot": SPEC_SNAPSHOT, "source": "pi_saved_configuration"})
             elif path == "/api/experiment/preview":
                 self.send(405, {"ok": False, "error": "POSTで設定を送信してください。"})
             elif path == "/api/experiment/sessions":
@@ -248,18 +354,19 @@ class Handler(BaseHTTPRequestHandler):
                       "/api/live/keepalive": lambda: self.controller.live.keepalive(body),
                       "/api/live/stop": lambda: self.controller.live.stop(body),
                       "/api/experiment/preview": lambda: {"ok": True, "trials": generate_trials(validate_config(body.get("config")), 0)},
+                      "/api/experiment/config": lambda: self._update_experiment_config(body),
                       "/api/experiment/session/create": lambda: self._create_experiment_session(body),
                       "/api/experiment/session/state": lambda: self.experiments.participant_view(body.get("session_id"), body.get("access")),
                       "/api/experiment/consent": lambda: self.experiments.consent(body.get("session_id"), body.get("access"), body.get("accepted")),
                       "/api/experiment/start": lambda: self.experiments.start(body.get("session_id"), body.get("access")),
                       "/api/experiment/trial/start": lambda: self.experiments.begin_trial(body.get("session_id"), body.get("access"), body.get("replay", False)),
-                      "/api/experiment/trial/event": lambda: self.experiments.event(body.get("session_id"), body.get("access"), body.get("event")),
-                      "/api/experiment/answer": lambda: self.experiments.answer(
-                          body.get("session_id"), body.get("access"), body.get("perceived_emotion"), body.get("confidence"),
-                          body.get("response_latency_ms"), body.get("free_text")),
-                      "/api/experiment/break": lambda: self.experiments.confirm_break(body.get("session_id"), body.get("access")),
-                      "/api/experiment/abort": lambda: self.experiments.abort(body.get("session_id"), body.get("access")),
-                      "/api/experiment/error": lambda: self.experiments.record_error(body.get("session_id"), body.get("access"), body.get("message")),
+                      "/api/experiment/trial/event": lambda: self._experiment_event(body),
+                      "/api/experiment/heartbeat": lambda: self._experiment_heartbeat(body),
+                      "/api/experiment/hardware/stop": lambda: self._experiment_hardware_stop(body),
+                      "/api/experiment/answer": lambda: self._experiment_answer(body),
+                      "/api/experiment/break": lambda: self._experiment_break(body),
+                      "/api/experiment/abort": lambda: self._experiment_abort(body),
+                      "/api/experiment/error": lambda: self._experiment_error(body),
                       "/api/experiment/feedback": lambda: self.experiments.add_free_text(body.get("session_id"), body.get("access"), body.get("free_text"))}
             self.send(200, routes[path]() if path in routes else self.controller.execute(path, body))
         except (Rejected, LiveControlError, ExperimentError, ValueError, KeyError, TypeError) as error:
@@ -268,12 +375,63 @@ class Handler(BaseHTTPRequestHandler):
             self.send(502, {"ok": False, "error": str(error)})
 
     def _create_experiment_session(self, body):
-        session, token = self.experiments.create(body.get("participant_id"), body.get("mode"), body.get("config"), body.get("random_seed"))
+        hardware_mode = body.get("hardware_mode", "mock")
+        if hardware_mode == "hardware":
+            self.hardware.preflight()
+        session, token = self.experiments.create(body.get("participant_id"), body.get("mode"),
+                                                 body.get("config"), body.get("random_seed"), hardware_mode)
         return {"ok": True, "session": session, "access": token}
+
+    def _update_experiment_config(self, body):
+        return {"ok": True, "config": self.experiments.update_current_config(body.get("config"))}
+
+    def _experiment_event(self, body):
+        return self.experiments.event(body.get("session_id"), body.get("access"),
+                                      body.get("event"), self.hardware.actuate)
+
+    def _participant_session(self, body):
+        session_id, access = body.get("session_id"), body.get("access")
+        with self.experiments.lock:
+            session = self.experiments._session(session_id, access)
+            return session_id, session.get("hardware_mode", "mock")
+
+    def _experiment_heartbeat(self, body):
+        session_id, mode = self._participant_session(body)
+        if mode == "hardware":
+            return self.hardware.keepalive(session_id)
+        return {"ok": True, "active": False}
+
+    def _experiment_hardware_stop(self, body):
+        session_id, _ = self._participant_session(body)
+        return self.hardware.stop(session_id)
+
+    def _experiment_answer(self, body):
+        view = self.experiments.answer(body.get("session_id"), body.get("access"),
+                                       body.get("perceived_emotion"), body.get("confidence"),
+                                       body.get("response_latency_ms"), body.get("free_text"))
+        if view.get("status") == "completed":
+            self.hardware.stop(body.get("session_id"))
+        return view
+
+    def _experiment_break(self, body):
+        session_id, _ = self._participant_session(body)
+        self.hardware.stop(session_id)
+        return self.experiments.confirm_break(session_id, body.get("access"))
+
+    def _experiment_abort(self, body):
+        session_id, _ = self._participant_session(body)
+        self.hardware.stop(session_id)
+        return self.experiments.abort(session_id, body.get("access"))
+
+    def _experiment_error(self, body):
+        session_id, _ = self._participant_session(body)
+        self.hardware.stop(session_id)
+        return self.experiments.record_error(session_id, body.get("access"), body.get("message"))
 
     @staticmethod
     def _admin_required(path, query):
-        if path in {"/api/experiment/default-config", "/api/experiment/preview", "/api/experiment/sessions"}:
+        if path in {"/api/experiment/config", "/api/experiment/default-config", "/api/experiment/hardware/status",
+                    "/api/experiment/preview", "/api/experiment/sessions"}:
             return True
         if path == "/api/experiment/session":
             return True
@@ -281,11 +439,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _check_admin(self):
         if not self.admin_token:
-            self.send(503, {"ok": False, "error": "管理者トークンが未設定です。Piのサービス環境に ARIA_EXPERIMENT_ADMIN_TOKEN を設定してください。"})
-            return False
+            return True
         supplied = self.headers.get("X-Aria-Admin-Token", "")
         if not supplied:
-            self.send(401, {"ok": False, "error": "管理者トークンを入力してください。"})
+            self.send(401, {"ok": False, "error": "Piに管理キーが設定されています。管理画面に入力してください。"})
             return False
         if not secrets.compare_digest(supplied, self.admin_token):
             self.send(403, {"ok": False, "error": "管理者トークンが正しくありません。"})
@@ -301,6 +458,7 @@ def main():
     limits = json.loads((ROOT / "limits.json").read_text())["channels"]
     Handler.controller = Controller(limits)
     Handler.controller.live = LiveController(Handler.controller)
+    Handler.hardware = ExperimentHardware(Handler.controller)
     Handler.experiments = ExperimentStore()
     Handler.admin_token = os.environ.get("ARIA_EXPERIMENT_ADMIN_TOKEN")
     Handler.controller.live.watch()
