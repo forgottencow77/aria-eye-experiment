@@ -64,12 +64,12 @@ class LiveControlTests(unittest.TestCase):
 
     def test_normalized_pose_uses_only_eyes(self):
         self.live.input({"token": self.start(), "sequence": 1, "pose": {"x": -1, "y": 1, "openness": 0.25}})
-        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": -1}, "blink": 0.75, "eyeOnly": True}))
+        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": 1}, "blink": 0.75, "eyeOnly": True}))
         self.assertEqual(self.hardware.lcd_writes, [])
 
     def test_screen_directions_follow_horizontal_calibration_and_vertical_mapping(self):
         token = self.start()
-        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, -1), (0, -1, 0, 1)]
+        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, 1), (0, -1, 0, -1)]
         for sequence, (x, y, expected_x, expected_y) in enumerate(directions, 1):
             with self.subTest(x=x, y=y):
                 self.live.input({"token": token, "sequence": sequence, "pose": {"x": x, "y": y, "openness": 0.6}})
@@ -79,7 +79,7 @@ class LiveControlTests(unittest.TestCase):
 
     def test_reported_hardware_pose_maps_back_to_screen_direction(self):
         self.hardware.state["values"].update({"0": 1700, "1": 950, "2": 1100, "3": 1450})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 1})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 1})
 
     def test_ui_left_and_right_produce_the_exact_user_photographed_endpoints(self):
         from test_servo_eye_only import servo
@@ -106,6 +106,41 @@ class LiveControlTests(unittest.TestCase):
                 self.assertEqual((frame[0], frame[1], frame[2], frame[3]), tuple(HOMES[:4]))
                 self.hardware.state["values"].update({str(k): v for k, v in frame.items()})
                 self.assertAlmostEqual(self.live.state_pose(self.hardware.state)["openness"], openness)
+
+    def test_saved_presets_reproduce_historical_tuning_pulse_targets(self):
+        from experiment_engine import DEFAULT_CONFIG
+        from legacy_ui_server import ExperimentHardware
+        from test_servo_eye_only import servo
+
+        # Absolute CH0..5 targets from the original tuning pipeline (d1b4d3d):
+        # study lid -> openness=lid, raw blink=1-lid, old lid endpoints.
+        # The corrected Pi polarity and current openness=1-lid must cancel;
+        # the historical gaze coordinates must not be inverted a second time.
+        expected = {
+            "neutral": (1640, 1450, 1600, 1510, 1598, 1420),
+            "anger": (1600, 1450, 1600, 1550, 1482, 1540),
+            "disgust": (1700, 2125, 1960, 1450, 1482, 1540),
+            "fear": (1500, 2200, 2000, 1650, 1770, 1240),
+            "joy": (1700, 1450, 1600, 1450, 1206, 1828),
+            "sadness": (1500, 1450, 1600, 1650, 1770, 1240),
+            "surprise": (1600, 1450, 1600, 1550, 850, 2200),
+        }
+        token = self.start()
+        presets = {"neutral": DEFAULT_CONFIG["neutral"], **DEFAULT_CONFIG["emotions"]}
+        for sequence, (name, values) in enumerate(presets.items(), 1):
+            with self.subTest(preset=name):
+                payload = ExperimentHardware.payload(values)
+                self.live.input({"token": token, "sequence": sequence, **payload})
+                command = self.hardware.writes[-1][1]
+                frame = servo.ServoRig._target_for_pose(
+                    None, {**command["gaze"], "blink": command["blink"]}, eye_only=True)
+                self.assertEqual(tuple(frame[c] for c in range(6)), expected[name])
+                self.assertEqual(set(frame), set(range(6)))
+                self.assertEqual(self.hardware.lcd_writes[-1]["irisColor"], values["iris_hex"])
+                self.hardware.state["values"].update({str(c): v for c, v in frame.items()})
+                reported = self.live.state_pose(self.hardware.state)
+                for key in ("x", "y", "openness"):
+                    self.assertAlmostEqual(reported[key], payload["pose"][key], delta=0.001)
 
     def test_stop_returns_to_centered_open_pose(self):
         from test_servo_eye_only import servo
@@ -188,7 +223,7 @@ class LiveControlTests(unittest.TestCase):
         self.hardware.state["sync"]["pose"] = {"x": 1, "y": -1, "blink": 1}
         self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})
         self.hardware.state["values"].update({"0": 1200, "1": 950, "2": 1100, "3": 1950, "4": 2000, "5": 1000})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 0})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 0})
 
 
 if __name__ == "__main__":

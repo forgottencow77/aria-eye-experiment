@@ -44,6 +44,25 @@ Hardware events record command request and controller acceptance times. The serv
 
 The study page saves manual emotion settings to the Pi. The values remain in the same UI convention used for adjustment; conversion to normalized servo openness happens only when a hardware command is sent.
 
+## Calibrated preset coordinates
+
+The emotion JSON retains the UI numbers used during the original tuning session.
+The `eyelid_open_percent` name is historical: 0 means the photographed open
+endpoint and 100 the closed endpoint. Vertical values also retain the old UI
+coordinate convention, not a new physical-angle calibration. Do not negate these
+values or change emotion presets to compensate for controller updates.
+
+The end-to-end regression in `tests/test_live_control.py` fixes the original
+CH0–CH5 pulse targets for all six emotions and B₀. The current study/experiment
+adapter sends `openness = 1 - eyelid_open_percent / 100`; LiveController sends
+`blink = 1 - openness` and preserves the historical gaze sign. The matching Pi
+runtime uses open CH4/CH5 = 850/2200 µs and closed = 2000/1000 µs.
+Deploy this Pi runtime together with the controller's `live_control.py` and
+`limits.json`. Mixing the old Pi polarity with the current adapter reverses the
+calibrated eyelid appearance. Stop/disconnect use the same open endpoint mapping.
+All existing pulse bounds are retained. Automated tests verify commanded pulse
+values; they do not measure physical servo position or validate emotion recognition.
+
 ## Run locally
 
 ```sh
