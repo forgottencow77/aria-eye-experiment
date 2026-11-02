@@ -314,12 +314,15 @@ class ExperimentStore:
             active = None
             if session.get("current_trial"):
                 current = session["current_trial"]
+                response_event = next((item for item in reversed(current["events"])
+                                       if item.get("event") == "response"), None)
                 active = {
                     "kind": "practice" if current["kind"] == "practice" else "stimulus",
                     "phase": current["phase"],
                     "visual": copy.deepcopy(current["visual"]),
                     "baseline": copy.deepcopy(session["configuration"]["neutral"]),
                     "attempt": current["attempt"],
+                    "response_elapsed_ms": self._elapsed_ms_since(response_event["at"]) if response_event else 0,
                 }
             return {
                 "ok": True, "session_id": session_id, "status": session["status"],
@@ -332,6 +335,20 @@ class ExperimentStore:
                 "needs_break": session["next_index"] in (14, 28) and session["next_index"] not in session["breaks_confirmed"],
                 "finished_at": session["finished_at"],
             }
+
+    def _elapsed_ms_since(self, timestamp):
+        try:
+            start = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            now_value = self.wall_clock()
+            now = now_value if isinstance(now_value, datetime) else datetime.fromisoformat(str(now_value).replace("Z", "+00:00"))
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+            elapsed = round((now - start).total_seconds() * 1000)
+            return max(0, min(86_400_000, elapsed))
+        except (TypeError, ValueError):
+            return 0
 
     def consent(self, session_id, token, accepted):
         if not isinstance(accepted, bool):
@@ -458,7 +475,7 @@ class ExperimentStore:
             trial.setdefault("attempts", []).append(copy.deepcopy(event))
             field_by_event = {
                 "instruction": "instruction_shown_at", "baseline": "baseline_at", "transition": "transition_started_at",
-                "target": "target_command_at", "return": "return_command_at", "response": "response_screen_at",
+                "target": "target_hold_started_at", "return": "return_command_at", "response": "response_screen_at",
             }
             trial[field_by_event[name]] = event["at"]
             trial["timing_events"] = copy.deepcopy(current["events"])
