@@ -66,6 +66,13 @@ class EyeOnlyTests(unittest.TestCase):
     def test_legacy_default_still_returns_ten_channels(self):
         self.assertEqual(set(servo.ServoRig._target_for_pose(None, {'x': 0, 'y': 0, 'blink': 0})), set(range(10)))
 
+    def test_physical_eyelid_endpoints_are_open_at_zero_blink(self):
+        opened = servo.ServoRig._target_for_pose(None, {'x':0,'y':0,'blink':0}, eye_only=True)
+        closed = servo.ServoRig._target_for_pose(None, {'x':0,'y':0,'blink':1}, eye_only=True)
+        self.assertEqual((opened[4], opened[5]), (850, 2200))
+        self.assertEqual((closed[4], closed[5]), (2000, 1000))
+        self.assertEqual((servo.CHANNELS[4]['home'], servo.CHANNELS[5]['home']), (850, 2200))
+
     def test_eye_only_frame_omits_brows_and_matches_all_calibration_endpoints(self):
         limits = {0:(1200,1700),1:(950,2200),2:(1100,2000),3:(1450,1950),4:(850,2000),5:(1000,2200)}
         for x in [-1, 0, 1]:
