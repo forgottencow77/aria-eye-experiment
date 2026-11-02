@@ -1,10 +1,12 @@
 import copy
 import json
 from pathlib import Path
+import socket
 import unittest
+from unittest.mock import patch
 
 from legacy_ui_server import Controller, Rejected
-from live_control import LiveController, LiveControlError
+from live_control import LiveController, LiveControlError, resolve_ipv4_base_url
 
 LIMITS = json.loads((Path(__file__).resolve().parents[1] / "limits.json").read_text())["channels"]
 HOMES = [1600, 1450, 1600, 1550, 2000, 1000, 1450, 1450, 1500, 1500]
@@ -46,6 +48,13 @@ class LiveControlTests(unittest.TestCase):
 
     def start(self):
         return self.live.start()["token"]
+
+    def test_api_base_resolves_hostname_to_ipv4_and_falls_back_if_unavailable(self):
+        address = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("192.0.2.8", 8768))
+        with patch("live_control.socket.getaddrinfo", return_value=[address]):
+            self.assertEqual(resolve_ipv4_base_url("http://raspberrypi.local:8768"), "http://192.0.2.8:8768")
+        with patch("live_control.socket.getaddrinfo", side_effect=OSError("not resolved")):
+            self.assertEqual(resolve_ipv4_base_url("http://raspberrypi.local:8768"), "http://raspberrypi.local:8768")
 
     def test_status_and_start_do_not_move_hardware(self):
         self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})

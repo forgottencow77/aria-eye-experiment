@@ -32,6 +32,8 @@ python3 legacy_ui_server.py --host 127.0.0.1 --port 18867
 
 Then open `http://127.0.0.1:18867/experiment/admin`. The MacBook controller stays bound to loopback and keeps the live-control lease locally. This requires network access to the Pi's ports 8768 and 8769; restrict those ports to a trusted link or use direct Ethernet.
 
+Configured API hostnames are resolved to IPv4 when the controller starts. This avoids the slow unreachable IPv6 path observed for `.local` on some Wi-Fi connections. Restart the MacBook controller after the Pi changes networks or its address changes.
+
 The systemd unit currently binds the web UI to all Pi interfaces. Use a dedicated direct link or restrict the bind address/firewall before connecting the Pi to a shared network. No external API account or API key is used. `ARIA_EXPERIMENT_ADMIN_TOKEN` is optional; if configured manually, enter it in the collapsed connection settings.
 
 ## Presentation modes

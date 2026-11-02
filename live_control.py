@@ -5,12 +5,34 @@ import json
 import math
 import os
 import re
+import socket
 import secrets
 import threading
 import time
+from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
-LCD_API_BASE = os.environ.get("ARIA_LCD_API_BASE", "http://127.0.0.1:8769").rstrip("/")
+
+def resolve_ipv4_base_url(base_url):
+    """Resolve configured API hosts to IPv4 to avoid unreachable IPv6 Wi-Fi routes."""
+    try:
+        parsed = urlsplit(base_url)
+        if not parsed.hostname or parsed.username or parsed.password:
+            return base_url.rstrip("/")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        addresses = socket.getaddrinfo(parsed.hostname, port, socket.AF_INET, socket.SOCK_STREAM)
+        if not addresses:
+            return base_url.rstrip("/")
+        ipv4 = addresses[0][4][0]
+        if ipv4 == parsed.hostname:
+            return base_url.rstrip("/")
+        netloc = ipv4 + (f":{parsed.port}" if parsed.port else "")
+        return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)).rstrip("/")
+    except (OSError, ValueError):
+        return base_url.rstrip("/")
+
+
+LCD_API_BASE = resolve_ipv4_base_url(os.environ.get("ARIA_LCD_API_BASE", "http://127.0.0.1:8769"))
 
 
 class LiveControlError(ValueError):

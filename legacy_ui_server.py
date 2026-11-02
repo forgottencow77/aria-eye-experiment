@@ -14,13 +14,13 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
-from live_control import LiveController, LiveControlError
+from live_control import LiveController, LiveControlError, resolve_ipv4_base_url
 from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT, ExperimentError, ExperimentStore, generate_trials, utc_now, validate_config
 
 ROOT = Path(__file__).resolve().parent
 EYE_IDS = frozenset(range(6))
 ALLOWED_POSTS = frozenset({"/api/nudge", "/api/center", "/api/release", "/api/record", "/api/move_saved"})
-SERVO_API_BASE = os.environ.get("ARIA_SERVO_API_BASE", "http://127.0.0.1:8768").rstrip("/")
+SERVO_API_BASE = resolve_ipv4_base_url(os.environ.get("ARIA_SERVO_API_BASE", "http://127.0.0.1:8768"))
 
 
 class Rejected(ValueError):
