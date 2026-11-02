@@ -300,7 +300,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, {"ok": True, **self.experiments.get_config_state()})
             elif path == "/api/experiment/default-config":
                 self.send(200, {"ok": True, **self.experiments.get_config_state(),
-                                "spec_snapshot": SPEC_SNAPSHOT, "source": "pi_saved_configuration"})
+                                "spec_snapshot": SPEC_SNAPSHOT, "source": "server_saved_configuration"})
             elif path == "/api/experiment/preview":
                 self.send(405, {"ok": False, "error": "POSTで設定を送信してください。"})
             elif path == "/api/experiment/sessions":

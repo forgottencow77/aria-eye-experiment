@@ -54,6 +54,7 @@ DEFAULT_CONFIG = {
         "surprise": {"iris_hex": "#39B4BF", "eyelid_open_percent": 0, "gaze_horizontal_deg": 0, "gaze_vertical_deg": 0},
     },
 }
+# Historical draft retained for comparison; DEFAULT_CONFIG is the later user-approved setting.
 SPEC_SNAPSHOT = {
     "neutral": {"iris_hex": "#BFBFBF", "eyelid_open_percent": 65, "gaze_horizontal_deg": 0, "gaze_vertical_deg": -8},
     "emotions": {
