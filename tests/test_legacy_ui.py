@@ -9,7 +9,7 @@ spec = importlib.util.spec_from_file_location('legacy_ui', ROOT / 'legacy_ui_ser
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 limits = json.loads((ROOT / 'limits.json').read_text())['channels']
-homes = [1600,1450,1600,1550,2000,1000,1450,1450,1500,1500]
+homes = [1600,1450,1600,1550,850,2200,1450,1450,1500,1500]
 
 class FakeUpstream:
     def __init__(self):
