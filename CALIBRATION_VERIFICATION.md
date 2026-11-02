@@ -42,3 +42,10 @@ Deployment backup on Pi:
 `/home/forgottencow/eye-display/legacy-ui/releases/20261102-preset-restore/previous`.
 The previously inactive Pi legacy UI remains inactive; the active controller is
 the Mac service on `http://127.0.0.1:18868`.
+
+## Subsequent baseline setting update
+
+After the verification above, the user changed only B₀ eyelid UI value from 65%
+to 40%. Its current CH4/CH5 targets are 1310/1720 µs. The table above remains a
+historical measurement at 65%, not a measurement of the new baseline. The six
+emotion presets and servo mapping are unchanged.

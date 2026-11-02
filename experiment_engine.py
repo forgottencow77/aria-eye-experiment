@@ -42,7 +42,7 @@ CONDITIONS = ("C", "L", "G", "CL", "CG", "LG", "CLG")
 EVENT_ORDER = ("instruction", "baseline", "transition", "target", "return", "response")
 DEFAULT_CONFIG = {
     "neutral": {
-        "iris_hex": "#BFBFBF", "eyelid_open_percent": 65,
+        "iris_hex": "#BFBFBF", "eyelid_open_percent": 40,
         "gaze_horizontal_deg": 0, "gaze_vertical_deg": -8,
     },
     "emotions": {

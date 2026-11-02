@@ -51,6 +51,11 @@ The page takes a snapshot of the server-saved configuration and uses the same
 condition generator as the experiment. Choose an emotion and C/L/G combination,
 or use **前へ / 次へ** to walk through all 42 slots in order.
 
+B₀ currently uses gray `#BFBFBF`, eyelid UI value **40%**, and gaze UI values
+0° horizontal / −8° vertical (updated at the user’s request on 2026-11-02).
+The six emotion settings are unchanged. Existing experiment sessions retain their
+original frozen configuration; newly created sessions use the updated baseline.
+
 ON uses that emotion's value; OFF uses the corresponding value from B₀, not zero
 or a disabled servo. The page shows the effective color, eyelid and gaze values,
 the current slot number, and other slots with identical settings. Adjustment

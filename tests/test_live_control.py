@@ -108,7 +108,7 @@ class LiveControlTests(unittest.TestCase):
                 self.assertAlmostEqual(self.live.state_pose(self.hardware.state)["openness"], openness)
 
     def test_saved_presets_reproduce_historical_tuning_pulse_targets(self):
-        from experiment_engine import DEFAULT_CONFIG
+        from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT
         from legacy_ui_server import ExperimentHardware
         from test_servo_eye_only import servo
 
@@ -117,7 +117,9 @@ class LiveControlTests(unittest.TestCase):
         # The corrected Pi polarity and current openness=1-lid must cancel;
         # the historical gaze coordinates must not be inverted a second time.
         expected = {
-            "neutral": (1640, 1450, 1600, 1510, 1598, 1420),
+            "historical_neutral": (1640, 1450, 1600, 1510, 1598, 1420),
+            # User revised only B0 eyelid UI value from 65 to 40 on 2026-11-02.
+            "neutral": (1640, 1450, 1600, 1510, 1310, 1720),
             "anger": (1600, 1450, 1600, 1550, 1482, 1540),
             "disgust": (1700, 2125, 1960, 1450, 1482, 1540),
             "fear": (1500, 2200, 2000, 1650, 1770, 1240),
@@ -126,7 +128,8 @@ class LiveControlTests(unittest.TestCase):
             "surprise": (1600, 1450, 1600, 1550, 850, 2200),
         }
         token = self.start()
-        presets = {"neutral": DEFAULT_CONFIG["neutral"], **DEFAULT_CONFIG["emotions"]}
+        presets = {"historical_neutral": SPEC_SNAPSHOT["neutral"],
+                   "neutral": DEFAULT_CONFIG["neutral"], **DEFAULT_CONFIG["emotions"]}
         for sequence, (name, values) in enumerate(presets.items(), 1):
             with self.subTest(preset=name):
                 payload = ExperimentHardware.payload(values)

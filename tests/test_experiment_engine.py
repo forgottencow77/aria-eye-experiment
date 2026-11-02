@@ -68,6 +68,7 @@ class ExperimentEngineTests(unittest.TestCase):
         self.assertEqual(DEFAULT_CONFIG["emotions"]["surprise"]["eyelid_open_percent"], 0)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["eyelid_open_percent"], 55)
         self.assertEqual(DEFAULT_CONFIG["neutral"]["gaze_vertical_deg"], -8)
+        self.assertEqual(DEFAULT_CONFIG["neutral"]["eyelid_open_percent"], 40)
 
     def test_factor_combinations_use_baseline_for_unselected_elements(self):
         gaze_only = _visual_state(DEFAULT_CONFIG, "fear", "G")

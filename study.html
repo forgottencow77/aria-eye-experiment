@@ -94,7 +94,7 @@ const EMOTIONS=[
 const DEVICE_MODE=location.pathname==='/study';
 let emotion=EMOTIONS.find(x=>x.id==='fear');
 const SETTINGS_KEY='aria-emotion-settings-v2';
-let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:65,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
+let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:40,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
 let serverConfigTimer=0,serverConfigSave=Promise.resolve();
 const CONDITION_ORDER=['C','L','G','CL','CG','LG','CLG'];
 let inspectionTrials=[],inspectionConfig=null,conditionFactors='C',inspectionLoading=false;
