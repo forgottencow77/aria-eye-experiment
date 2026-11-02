@@ -185,6 +185,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, (ROOT / "simple.js").read_bytes(), "text/javascript; charset=utf-8")
             elif path == "/simple.css":
                 self.send(200, (ROOT / "simple.css").read_bytes(), "text/css; charset=utf-8")
+            elif path == "/experiment.css":
+                self.send(200, (ROOT / "experiment.css").read_bytes(), "text/css; charset=utf-8")
             elif path == "/api/live/status":
                 self.send(200, self.controller.live.status())
             elif path == "/api/state":
