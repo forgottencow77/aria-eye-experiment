@@ -22,6 +22,10 @@ class NoHardware:
         self.calls.append((path, body))
         raise AssertionError("experiment routes must not call servo upstream")
 
+    def actuate(self, *args):
+        self.calls.append(("actuate", args))
+        raise AssertionError("mock experiment routes must not actuate hardware")
+
 
 class ExperimentHttpTests(unittest.TestCase):
     @classmethod
@@ -31,6 +35,7 @@ class ExperimentHttpTests(unittest.TestCase):
         cls.store = ExperimentStore(Path(cls.temp.name) / "data")
         server.Handler.controller = type("ControllerStub", (), {"upstream": cls.hardware.upstream})()
         server.Handler.experiments = cls.store
+        server.Handler.hardware = cls.hardware
         server.Handler.admin_token = "test-admin-token"
         try:
             cls.http = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
@@ -103,7 +108,7 @@ class ExperimentHttpTests(unittest.TestCase):
         status, headers, body = self.request("/experiment/participant")
         self.assertEqual(status, 200)
         self.assertIn("text/html", headers["Content-Type"])
-        self.assertIn("Trial", body.decode())
+        self.assertIn("今の目は", body.decode())
 
 
 if __name__ == "__main__":

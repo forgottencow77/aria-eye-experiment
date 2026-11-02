@@ -59,7 +59,12 @@ class ExperimentEngineTests(unittest.TestCase):
         return self.store.answer(session_id, token, emotion, confidence, 1234)
 
     def test_latest_confirmed_defaults_are_used_and_old_candidate_values_are_not(self):
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["anger"]["gaze_vertical_deg"], 0)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["gaze_horizontal_deg"], 18)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["gaze_vertical_deg"], -20)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["fear"]["eyelid_open_percent"], 80)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["fear"]["gaze_vertical_deg"], 5)
+        self.assertEqual(DEFAULT_CONFIG["emotions"]["joy"]["gaze_vertical_deg"], -20)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["surprise"]["eyelid_open_percent"], 0)
         self.assertEqual(DEFAULT_CONFIG["emotions"]["disgust"]["eyelid_open_percent"], 55)
         self.assertEqual(DEFAULT_CONFIG["neutral"]["gaze_vertical_deg"], -8)
@@ -88,7 +93,13 @@ class ExperimentEngineTests(unittest.TestCase):
     def test_physical_duplicates_are_detected_without_collapsing_slots(self):
         trials = generate_trials(DEFAULT_CONFIG, 5)
         duplicates = ExperimentStore.duplicate_states(trials)
-        self.assertTrue(any(set(group["trial_slot_ids"]) == {"joy__G", "surprise__G"} for group in duplicates))
+        duplicate_groups = {frozenset(group["trial_slot_ids"]) for group in duplicates}
+        self.assertEqual(duplicate_groups, {
+            frozenset({"anger__L", "disgust__L"}),
+            frozenset({"anger__G", "surprise__G"}),
+            frozenset({"fear__L", "sadness__L"}),
+        })
+        self.assertEqual(len({trial["physical_state_id"] for trial in trials}), 39)
         self.assertEqual(len(trials), 42)
 
     def test_double_start_is_rejected_and_explicit_replay_is_recorded(self):

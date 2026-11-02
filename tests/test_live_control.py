@@ -48,29 +48,29 @@ class LiveControlTests(unittest.TestCase):
         return self.live.start()["token"]
 
     def test_status_and_start_do_not_move_hardware(self):
-        self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 0})
+        self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})
         self.start()
         self.assertEqual(self.hardware.writes, [])
         self.assertEqual(self.hardware.lcd_writes, [])
 
     def test_normalized_pose_uses_only_eyes(self):
         self.live.input({"token": self.start(), "sequence": 1, "pose": {"x": -1, "y": 1, "openness": 0.25}})
-        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": -1}, "blink": 0.25, "eyeOnly": True}))
+        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": 1}, "blink": 0.75, "eyeOnly": True}))
         self.assertEqual(self.hardware.lcd_writes, [])
 
     def test_screen_directions_follow_horizontal_calibration_and_vertical_mapping(self):
         token = self.start()
-        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, -1), (0, -1, 0, 1)]
+        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, 1), (0, -1, 0, -1)]
         for sequence, (x, y, expected_x, expected_y) in enumerate(directions, 1):
             with self.subTest(x=x, y=y):
                 self.live.input({"token": token, "sequence": sequence, "pose": {"x": x, "y": y, "openness": 0.6}})
                 frame = self.hardware.writes[-1][1]
                 self.assertEqual(frame["gaze"], {"x": expected_x, "y": expected_y})
-                self.assertAlmostEqual(frame["blink"], 0.6)
+                self.assertAlmostEqual(frame["blink"], 0.4)
 
     def test_reported_hardware_pose_maps_back_to_screen_direction(self):
         self.hardware.state["values"].update({"0": 1700, "1": 950, "2": 1100, "3": 1450})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 0})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 1})
 
     def test_ui_left_and_right_produce_the_exact_user_photographed_endpoints(self):
         from test_servo_eye_only import servo
@@ -88,7 +88,7 @@ class LiveControlTests(unittest.TestCase):
     def test_eyelid_open_close_and_midpoint_match_installed_direction(self):
         from test_servo_eye_only import servo
         token = self.start()
-        for sequence, (openness, expected) in enumerate([(0, (2000, 1000)), (0.5, (1425, 1600)), (1, (850, 2200))], 1):
+        for sequence, (openness, expected) in enumerate([(0, (850, 2200)), (0.5, (1425, 1600)), (1, (2000, 1000))], 1):
             with self.subTest(openness=openness):
                 self.live.input({"token": token, "sequence": sequence, "pose": {"x": 0, "y": 0, "openness": openness}})
                 command = self.hardware.writes[-1][1]
@@ -98,7 +98,7 @@ class LiveControlTests(unittest.TestCase):
                 self.hardware.state["values"].update({str(k): v for k, v in frame.items()})
                 self.assertAlmostEqual(self.live.state_pose(self.hardware.state)["openness"], openness)
 
-    def test_stop_still_returns_to_existing_default_closed_pose(self):
+    def test_stop_returns_to_centered_open_pose(self):
         from test_servo_eye_only import servo
         token = self.start()
         self.live.input({"token": token, "sequence": 1, "pose": {"x": 0, "y": 0, "openness": 1}})
@@ -177,9 +177,9 @@ class LiveControlTests(unittest.TestCase):
 
     def test_position_is_read_from_values_not_stale_sync_metadata(self):
         self.hardware.state["sync"]["pose"] = {"x": 1, "y": -1, "blink": 1}
-        self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 0})
+        self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})
         self.hardware.state["values"].update({"0": 1200, "1": 950, "2": 1100, "3": 1950, "4": 850, "5": 2200})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 1})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 0})
 
 
 if __name__ == "__main__":
