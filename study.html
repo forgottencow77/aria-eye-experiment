@@ -82,6 +82,8 @@ const EMOTIONS=[
 const DEVICE_MODE=location.pathname==='/study';
 let emotion=EMOTIONS.find(x=>x.id==='fear');
 const SETTINGS_KEY='aria-emotion-settings-v2';
+let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:65,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
+let serverConfigTimer=0;
 function boundedSetting(value,low,high,fallback){const number=Number(value);return Number.isFinite(number)?Math.max(low,Math.min(high,number)):fallback}
 function loadSettings(){
   let saved={};
@@ -92,7 +94,7 @@ function loadSettings(){
     return [item.id,{hsv:[boundedSetting(hsv[0],0,359,item.hsv[0]),boundedSetting(hsv[1],0,100,item.hsv[1]),boundedSetting(hsv[2],0,100,item.hsv[2])],lid:boundedSetting(value.lid,0,1,item.lid),gaze:[boundedSetting(gaze[0],-20,20,item.gaze[0]),boundedSetting(gaze[1],-20,20,item.gaze[1])]}];
   }));
 }
-function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}}
+function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}if(DEVICE_MODE){clearTimeout(serverConfigTimer);serverConfigTimer=setTimeout(function(){api('/api/experiment/config',buildServerConfig()).catch(function(error){controlError='Piへの設定保存に失敗しました: '+error.message;renderSelected()})},350)}}
 const settingsByEmotion=loadSettings();
 let deviceToken=null,deviceSequence=0,deviceHeartbeat=0,appliedEmotion=null;
 let deviceUpdateTimer=0,deviceUpdateBusy=false,deviceUpdatePending=false,controlError='';
@@ -103,9 +105,24 @@ function hsvHex([h,s,v]){
   const rgb=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
   return '#'+rgb.map(n=>Math.round((n+m)*255).toString(16).padStart(2,'0')).join('');
 }
+function hexHsv(hex){
+  const value=hex.replace('#','');const r=parseInt(value.slice(0,2),16)/255;const g=parseInt(value.slice(2,4),16)/255;const b=parseInt(value.slice(4,6),16)/255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b),delta=max-min;let h=0;
+  if(delta){if(max===r)h=60*(((g-b)/delta)%6);else if(max===g)h=60*((b-r)/delta+2);else h=60*((r-g)/delta+4)}
+  if(h<0)h+=360;return [Math.round(h),max===0?0:Math.round(delta/max*100),Math.round(max*100)];
+}
+function applyServerConfig(config){
+  neutralConfig=config.neutral;
+  for(const item of EMOTIONS){const row=config.emotions[item.id];settingsByEmotion[item.id]={hsv:hexHsv(row.iris_hex),lid:Number(row.eyelid_open_percent)/100,gaze:[Number(row.gaze_horizontal_deg),Number(row.gaze_vertical_deg)]}}
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}
+}
+function buildServerConfig(){
+  return {neutral:neutralConfig,emotions:Object.fromEntries(EMOTIONS.map(item=>{const value=settingsByEmotion[item.id];return [item.id,{iris_hex:hsvHex(value.hsv).toUpperCase(),eyelid_open_percent:Math.round(value.lid*100),gaze_horizontal_deg:Math.round(value.gaze[0]),gaze_vertical_deg:Math.round(value.gaze[1])}]}))};
+}
+async function loadServerConfig(){if(!DEVICE_MODE)return;const data=await api('/api/experiment/config');if(!data.config_initialized){const saved=localStorage.getItem(SETTINGS_KEY);if(saved){const migrated=await api('/api/experiment/config',{config:buildServerConfig()});applyServerConfig(migrated.config);return}}applyServerConfig(data.config)}
 function deviceState(item){
   return {
-    pose:{x:Math.max(-1,Math.min(1,item.gaze[0]/20)),y:Math.max(-1,Math.min(1,item.gaze[1]/20)),openness:item.lid},
+    pose:{x:Math.max(-1,Math.min(1,item.gaze[0]/20)),y:Math.max(-1,Math.min(1,item.gaze[1]/20)),openness:1-item.lid},
     irisColor:hsvHex(item.hsv)
   };
 }
@@ -117,7 +134,7 @@ function currentSettings(){return settingsByEmotion[emotion.id]}
 function renderEyes(settings){
   const stage=el('device');
   stage.style.setProperty('--iris',hsvHex(settings.hsv));
-  stage.style.setProperty('--open',settings.lid);
+  stage.style.setProperty('--open',1-settings.lid);
   stage.style.setProperty('--gx',Math.max(-1,Math.min(1,settings.gaze[0]/25)));
   stage.style.setProperty('--gy',Math.max(-1,Math.min(1,settings.gaze[1]/20)));
 }
@@ -253,7 +270,11 @@ if(DEVICE_MODE){
 }else{
   el('deviceControls').hidden=true;
 }
-render();
+async function initialize(){
+  if(DEVICE_MODE){try{await loadServerConfig()}catch(error){controlError='Piに保存された設定を読み込めません: '+error.message}}
+  render();
+}
+void initialize();
 </script>
 </body>
 </html>
