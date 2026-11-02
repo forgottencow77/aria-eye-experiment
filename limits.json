@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source": "Horizontal endpoints and eyelid pulse bounds follow the recorded calibration. The Mac controller corrects the observed vertical inversion. The physical eyelid direction still differs from the Pi-side labels.",
+  "source": "Horizontal endpoints and eyelid pulse bounds follow the recorded calibration. The Mac controller corrects the observed vertical inversion. The Pi-side eyelid endpoints are aligned with the physically observed opening direction; no pulse bounds were widened.",
   "channels": {
     "0": {
       "min": 1200,
@@ -38,16 +38,16 @@
       "min": 850,
       "max": 2000,
       "endpoints": {
-        "open_us": 2000,
-        "closed_us": 850
+        "open_us": 850,
+        "closed_us": 2000
       }
     },
     "5": {
       "min": 1000,
       "max": 2200,
       "endpoints": {
-        "open_us": 1000,
-        "closed_us": 2200
+        "open_us": 2200,
+        "closed_us": 1000
       }
     }
   }
