@@ -207,6 +207,7 @@ class ServoRig:
         self.sync_target = dict(SYNC_CENTER)
         self.sync_pose = {'x': 0.0, 'y': 0.0, 'blink': 0.0}
         self.sync_target_pose = dict(self.sync_pose)
+        self.sync_fallback_pose = {'x': 0.0, 'y': 0.0, 'blink': 0.0}
         self.sync_eyebrow_preset = DEFAULT_EYEBROW_PRESET
         self.sync_target_eyebrow_preset = DEFAULT_EYEBROW_PRESET
         self.sync_last_at = 0.0
@@ -252,6 +253,7 @@ class ServoRig:
                 'target': dict(self.sync_target),
                 'pose': dict(self.sync_pose),
                 'target_pose': dict(self.sync_target_pose),
+                'fallback_pose': dict(self.sync_fallback_pose),
                 'eyebrow_preset': self.sync_eyebrow_preset,
                 'target_eyebrow_preset': self.sync_target_eyebrow_preset,
             }
@@ -363,6 +365,15 @@ class ServoRig:
         eye_only = payload.get('eyeOnly', False)
         if not isinstance(eye_only, bool):
             raise ValueError('eyeOnly must be a boolean')
+        fallback = payload.get('fallbackPose', {'x': 0.0, 'y': 0.0, 'blink': 0.0})
+        if not isinstance(fallback, dict) or set(fallback) != {'x', 'y', 'blink'}:
+            raise ValueError('fallbackPose must contain x, y and blink')
+        for key, value in fallback.items():
+            low = 0 if key == 'blink' else -1
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= 1:
+                raise ValueError('fallbackPose is outside the calibrated range')
+        if 'fallbackPose' in payload and not eye_only:
+            raise ValueError('fallbackPose requires eyeOnly')
         eyebrow_preset = str(payload.get('eyebrowPreset', DEFAULT_EYEBROW_PRESET)).strip().lower()
         if eyebrow_preset not in EYEBROW_PRESETS:
             eyebrow_preset = DEFAULT_EYEBROW_PRESET
@@ -371,6 +382,7 @@ class ServoRig:
             if not self.sync_active:
                 self.sync_pose = self._infer_sync_pose()
             self.sync_target_pose = {'x': x, 'y': y, 'blink': blink}
+            self.sync_fallback_pose = dict(fallback)
             self.sync_eye_only = eye_only
             if not eye_only:
                 self.sync_target_eyebrow_preset = eyebrow_preset
@@ -412,7 +424,7 @@ class ServoRig:
             with self.lock:
                 if self.sync_active:
                     stale = time.monotonic() - self.sync_last_at > SYNC_STALE_SECONDS
-                    target_pose = {'x': 0.0, 'y': 0.0, 'blink': 0.0} if stale else self.sync_target_pose
+                    target_pose = self.sync_fallback_pose if stale else self.sync_target_pose
                     target_eyebrow_preset = (
                         DEFAULT_EYEBROW_PRESET if stale else self.sync_target_eyebrow_preset
                     )
@@ -454,11 +466,11 @@ class ServoRig:
                             self.active[cid] = False
                     if stale and settled:
                         self.sync_target = self._target_for_pose(
-                            {'x': 0.0, 'y': 0.0, 'blink': 0.0},
+                            self.sync_fallback_pose,
                             DEFAULT_EYEBROW_PRESET,
                             eye_only=self.sync_eye_only,
                         )
-                        self.sync_target_pose = {'x': 0.0, 'y': 0.0, 'blink': 0.0}
+                        self.sync_target_pose = dict(self.sync_fallback_pose)
                         if not self.sync_eye_only:
                             self.sync_eyebrow_preset = DEFAULT_EYEBROW_PRESET
                             self.sync_target_eyebrow_preset = DEFAULT_EYEBROW_PRESET

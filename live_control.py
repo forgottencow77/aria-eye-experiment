@@ -65,6 +65,7 @@ class LiveController:
         self.pose_active = False
         self.frame = None
         self.last_error = None
+        self.fallback = None
 
     @staticmethod
     def request_lcd(body=None):
@@ -86,7 +87,19 @@ class LiveController:
             for channel in range(6):
                 self.controller.upstream("/api/release", {"channel": channel})
         elif had_pose:
-            self.controller.upstream("/api/sync", {"gaze": {"x": 0, "y": 0}, "blink": 0, "eyeOnly": True})
+            if self.fallback:
+                self.controller.upstream("/api/sync", self._fallback_frame())
+                self.lcd({"irisColor": self.fallback["irisColor"], "mode": "manual"})
+            else:
+                self.controller.upstream("/api/sync", {"gaze": {"x": 0, "y": 0}, "blink": 0, "eyeOnly": True})
+        self.fallback = None
+
+    def _fallback_frame(self):
+        pose = self.fallback["pose"]
+        raw = {"x": pose["x"] * self.GAZE_X_DIRECTION,
+               "y": pose["y"] * self.GAZE_Y_DIRECTION, "blink": 1 - pose["openness"]}
+        return {"gaze": {"x": raw["x"], "y": raw["y"]}, "blink": raw["blink"],
+                "eyeOnly": True, "fallbackPose": raw}
 
     def expire(self):
         with self.controller.lock:
@@ -141,7 +154,7 @@ class LiveController:
                     "pose": self.state_pose(servo), "irisColor": color.get("irisColor"),
                     "defaultColor": "#EAA636", "error": self.last_error}
 
-    def start(self):
+    def start(self, fallback=None):
         with self.controller.lock:
             self.expire()
             if self.token:
@@ -150,6 +163,7 @@ class LiveController:
             sync = servo.get("sync", {})
             if sync.get("active") and not sync.get("eye_only"):
                 raise LiveControlError("別のモーションを再生中です。先に停止してください。")
+            self.fallback = copy.deepcopy(fallback)
             self.token = secrets.token_urlsafe(24)
             self.sequence = -1
             self.pose_active = False
@@ -175,6 +189,8 @@ class LiveController:
                 openness = bounded(pose.get("openness"), 0, 1, "まぶた")
                 frame = {"gaze": {"x": x * self.GAZE_X_DIRECTION, "y": y * self.GAZE_Y_DIRECTION},
                          "blink": 1 - openness, "eyeOnly": True}
+                if self.fallback:
+                    frame["fallbackPose"] = self._fallback_frame()["fallbackPose"]
             if "irisColor" in body:
                 color = body["irisColor"]
                 if color is not None and (not isinstance(color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color)):

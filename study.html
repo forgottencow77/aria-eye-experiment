@@ -96,7 +96,7 @@ const DEVICE_MODE=location.pathname==='/study';
 let emotion=EMOTIONS.find(x=>x.id==='fear');
 const SETTINGS_KEY='aria-emotion-settings-v2';
 let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:40,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
-let serverConfigTimer=0,serverConfigSave=Promise.resolve();
+let serverConfigTimer=0,serverConfigSave=Promise.resolve(),serverConfigVersion=null;
 const CONDITION_ORDER=['C','L','G','CL','CG','LG','CLG'];
 let inspectionTrials=[],inspectionConfig=null,conditionFactors='C',inspectionLoading=false,displayBaseline=false;
 function isInspection(){return el('studyMode').value==='conditions'}
@@ -105,7 +105,7 @@ function selectedLabel(){if(isInspection()&&displayBaseline)return '共通基準
 function saveServerSettings(){
   clearTimeout(serverConfigTimer);serverConfigTimer=0;
   const config=buildServerConfig();
-  serverConfigSave=serverConfigSave.catch(()=>{}).then(()=>api('/api/experiment/config',{config}));
+  serverConfigSave=serverConfigSave.catch(()=>{}).then(()=>api('/api/experiment/config',{config,expected_version:serverConfigVersion})).then(data=>{serverConfigVersion=data.config_version;return data});
   return serverConfigSave;
 }
 function boundedSetting(value,low,high,fallback){const number=Number(value);return Number.isFinite(number)?Math.max(low,Math.min(high,number)):fallback}
@@ -146,7 +146,7 @@ function applyServerConfig(config){
 function buildServerConfig(){
   return {neutral:neutralConfig,emotions:Object.fromEntries(EMOTIONS.map(item=>{const value=settingsByEmotion[item.id];return [item.id,{iris_hex:hsvHex(value.hsv).toUpperCase(),eyelid_open_percent:Math.round(value.lid*100),gaze_horizontal_deg:Math.round(value.gaze[0]),gaze_vertical_deg:Math.round(value.gaze[1])}]}))};
 }
-async function loadServerConfig(){if(!DEVICE_MODE)return;const data=await api('/api/experiment/config');if(!data.config_initialized){const saved=localStorage.getItem(SETTINGS_KEY);if(saved){const migrated=await api('/api/experiment/config',{config:buildServerConfig()});applyServerConfig(migrated.config);return}}applyServerConfig(data.config)}
+async function loadServerConfig(){if(!DEVICE_MODE)return;const data=await api('/api/experiment/config');serverConfigVersion=data.config_version;if(!data.config_initialized){const saved=localStorage.getItem(SETTINGS_KEY);if(saved){const migrated=await api('/api/experiment/config',{config:buildServerConfig(),expected_version:serverConfigVersion});serverConfigVersion=migrated.config_version;applyServerConfig(migrated.config);return}}applyServerConfig(data.config)}
 function deviceState(item){
   return {
     pose:{x:Math.max(-1,Math.min(1,item.gaze[0]/20)),y:Math.max(-1,Math.min(1,item.gaze[1]/20)),openness:1-item.lid},

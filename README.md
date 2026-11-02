@@ -10,7 +10,7 @@ This repository contains the existing manual eye controls and an experiment work
 - `/experiment/admin` — review Pi-saved presets, select mock or hardware output, and create sessions
 - `/experiment/participant` — consent, practice, presentation, and response pages
 
-The experiment settings are saved on the Pi and shared across browsers. A session stores a snapshot of its settings and presentation order. The participant page contains no drawn eyes.
+The experiment settings are saved on the controller host and shared across browsers. A session stores a snapshot of its settings and presentation order. The participant page contains no drawn eyes.
 
 ## MacBook to Pi
 
@@ -40,15 +40,40 @@ The systemd unit currently binds the web UI to all Pi interfaces. Use a dedicate
 
 Mock mode is the default and sends no actuator commands. Hardware mode first checks that the Pi servo and LCD services respond, then sends poses through the existing live-control lease after the participant consents and starts the first presentation. The browser keeps the lease alive during presentation; disconnect, abort, and session completion release it. Existing servo calibration and channel limits remain in force.
 
-Hardware heartbeat monitoring starts after baseline acquisition and treats `active: false` as a lost lease.
+Hardware heartbeat monitoring starts after preparing B₀ during the instruction phase and treats `active: false` as a lost lease.
 The server also checks lease ownership at subsequent presentation phases; it does not silently
 reacquire control midway through a presentation. A failed attempt is marked invalid and requires
-explicit replay before an answer can be accepted. Heartbeats stop after presentation completes,
-so ordinary loss of the lease while answering does not invalidate an already completed presentation.
+explicit replay before an answer can be accepted. Heartbeats continue during answers and between trials to hold B₀. The experiment-specific
+stop and lease-expiry pose is also B₀; the Pi receives the same fallback pose for loss
+of upstream communication. Manual control retains its existing centered/open stop behavior.
+Loss of control while answering does not invalidate an already completed presentation,
+and the next presentation reacquires control and prepares B₀. If the entire Mac-to-Pi
+link is unavailable, Pi can restore the fallback servo pose but the separate LCD service
+cannot receive the gray-color restoration command until communication is available.
 
 Hardware events record command request and controller acceptance times. The servo system has no position feedback, so the saved data does not claim that the physical eyes reached a pose at a particular time. Test hardware mode with a pilot session before using it for participants.
 
 The study page saves manual emotion settings to the Pi. The values remain in the same UI convention used for adjustment; conversion to normalized servo openness happens only when a hardware command is sent.
+
+## Presentation sequence (version 2)
+
+Prepare B₀ at the first presentation or after reacquiring control. Then each trial
+uses **2 s instruction at B₀ → 0.5 s transition → 5 s hold → 0.5 s return to B₀ → answer**.
+There is no separate 0.5 s baseline phase. B₀ remains held while answering and waiting
+for the next trial. The `baseline` event remains a zero-wait pre-transition checkpoint
+for log compatibility. The nominal total is 8 s plus communication/storage overhead.
+These are software wait durations, not measured mechanical arrival times.
+
+New sessions snapshot `presentation_protocol`, included in JSON and CSV exports.
+Old completed data are not rewritten. Old sessions with superseded settings/protocol
+cannot newly start; create a new session. A participant page using the old protocol
+must reload before a new trial can begin.
+
+Configuration saves require the version read by the browser. A stale or missing
+version is rejected; session creation also rejects settings different from the saved
+configuration and never changes that configuration. The admin page shows B₀ above
+Create and in the session list. Explicit JSON edits must be saved before creating a
+session. This prevents an old 65% page from overwriting the confirmed 40% baseline.
 
 ## Inspect all 42 conditions
 

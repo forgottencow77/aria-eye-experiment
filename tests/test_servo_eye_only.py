@@ -110,6 +110,30 @@ class EyeOnlyTests(unittest.TestCase):
         self.assertEqual(instance.sync_target_eyebrow_preset,'custom')
         self.assertEqual(set(instance.sync_target),set(range(6)))
 
+    def test_experiment_stale_fallback_holds_b0_without_opening(self):
+        instance = rig()
+        fallback = {'x': 0, 'y': -.4, 'blink': .4}
+        with patch.object(servo.time, 'monotonic', return_value=100):
+            instance.sync({'gaze': {'x': 1, 'y': 1}, 'blink': 1, 'eyeOnly': True, 'fallbackPose': fallback})
+        for _ in range(40):
+            with patch.object(servo.time, 'monotonic', return_value=103), patch.object(servo.time, 'sleep', side_effect=EndIteration):
+                with self.assertRaises(EndIteration):
+                    instance._sync_loop()
+        self.assertEqual([instance.values[c] for c in range(6)], [1640,1450,1600,1510,1310,1720])
+        self.assertFalse(instance.sync_active)
+        self.assertEqual(instance.sync_target_pose, fallback)
+        self.assertEqual(instance.sync_target, {c:instance.values[c] for c in range(6)})
+        self.assertTrue(all(c < 6 for c, _ in instance.pca.writes))
+        instance.sync({'eyeOnly': True})
+        self.assertEqual(instance.sync_fallback_pose, {'x':0,'y':0,'blink':0})
+
+    def test_invalid_stale_fallback_rejected_before_output(self):
+        instance = rig()
+        for fallback in ({'x': 0, 'y': 2, 'blink': .4}, {'x': 0, 'y': 0, 'blink': float('nan')}, {}):
+            with self.assertRaises(ValueError):
+                instance.sync({'eyeOnly': True, 'fallbackPose': fallback})
+        self.assertEqual(instance.pca.writes, [])
+
     def test_scope_must_be_boolean(self):
         with self.assertRaises(ValueError):rig().sync({'eyeOnly':'true'})
 

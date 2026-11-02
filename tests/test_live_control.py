@@ -152,7 +152,7 @@ class LiveControlTests(unittest.TestCase):
         session = {"session_id": "lease-test", "configuration": DEFAULT_CONFIG}
         current = {"visual": DEFAULT_CONFIG["emotions"]["anger"]}
         hardware.actuate(session, current, "instruction")
-        self.assertFalse(hardware.keepalive("lease-test")["active"])
+        self.assertTrue(hardware.keepalive("lease-test")["active"])
         hardware.actuate(session, current, "baseline")
         self.assertTrue(hardware.keepalive("lease-test")["active"])
         self.live.stop({"token": hardware.token})
@@ -162,8 +162,37 @@ class LiveControlTests(unittest.TestCase):
                 hardware.actuate(session, current, event)
         self.assertEqual(len(self.hardware.writes), count)
         self.assertIsNone(self.live.token)
-        hardware.actuate(session, current, "baseline")
+        hardware.actuate(session, current, "instruction")
         self.assertTrue(hardware.keepalive("lease-test")["active"])
+
+    def test_experiment_wait_stop_and_expiry_preserve_baseline(self):
+        from experiment_engine import DEFAULT_CONFIG
+        from legacy_ui_server import ExperimentHardware
+        hardware = ExperimentHardware(self.controller)
+        session = {"session_id": "baseline-test", "configuration": DEFAULT_CONFIG}
+        current = {"visual": DEFAULT_CONFIG["emotions"]["surprise"]}
+        hardware.actuate(session, current, "instruction")
+        expected = {"x": 0, "y": -0.4, "blink": 0.4}
+        self.assertEqual(self.hardware.writes[-1][1]["fallbackPose"], expected)
+        for event in ("baseline", "transition", "target", "return", "response"):
+            hardware.actuate(session, current, event)
+        for _ in range(10):
+            self.hardware.clock += .5
+            hardware.keepalive("baseline-test")
+        result = hardware.actuate(session, current, "instruction")
+        self.assertEqual(result["status"], "baseline_already_held")
+        hardware.stop("baseline-test")
+        self.assertEqual(self.hardware.writes[-1][1]["gaze"], {"x": 0, "y": -.4})
+        self.assertEqual(self.hardware.writes[-1][1]["blink"], .4)
+        self.assertEqual(self.hardware.lcd_writes[-1]["irisColor"], "#BFBFBF")
+        hardware.actuate(session, current, "instruction")
+        hardware.actuate(session, current, "transition")
+        self.hardware.clock += 2
+        self.live.expire()
+        self.assertEqual(self.hardware.writes[-1][1]["fallbackPose"], expected)
+        self.assertEqual(self.hardware.writes[-1][1]["blink"], .4)
+        hardware.actuate(session, current, "instruction")
+        self.assertTrue(hardware.keepalive("baseline-test")["active"])
 
     def test_stop_returns_to_centered_open_pose(self):
         from test_servo_eye_only import servo

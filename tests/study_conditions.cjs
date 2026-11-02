@@ -10,7 +10,7 @@ const context=vm.createContext({console,location:{pathname:'/study'},document:{g
   const body=options.body?JSON.parse(options.body):null;
   if(body)writes.push({path,body});
   let data={ok:true};
-  if(path==='/api/experiment/config')data={ok:true,config:fixture.config,config_initialized:true};
+  if(path==='/api/experiment/config')data={ok:true,config:fixture.config,config_initialized:true,config_version:'fixture-v1'};
   if(path==='/api/experiment/preview'){assert.deepEqual(body.config,fixture.config);data={ok:true,trials:fixture.trials}}
   if(path==='/api/live/start')data.token='mock-token';
   return {ok:true,json:async()=>data};
@@ -65,6 +65,6 @@ const run=source=>vm.runInContext(source,context);
   assert.equal(element('conditionControls').hidden,true);
   assert.equal(writes.filter(w=>w.path==='/api/live/stop').length,1);
   await run('saveServerSettings()');
-  assert.deepEqual(writes.filter(w=>w.path==='/api/experiment/config').at(-1).body,{config:saved});
+  assert.deepEqual(writes.filter(w=>w.path==='/api/experiment/config').at(-1).body,{config:saved,expected_version:'fixture-v1'});
   console.log('PASS: 42 condition payloads, B0 substitution, navigation, immutable settings, explicit activation and stop');
 })().catch(error=>{console.error(error);process.exitCode=1});

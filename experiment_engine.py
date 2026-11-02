@@ -39,6 +39,8 @@ EMOTION_NAMES = {
 EMOTION_IDS = ("anger", "disgust", "fear", "joy", "sadness", "surprise")
 FACTORS = ("C", "L", "G")
 CONDITIONS = ("C", "L", "G", "CL", "CG", "LG", "CLG")
+PRESENTATION_PROTOCOL = {"version": 2, "instruction_ms": 2000, "baseline_wait_ms": 0,
+                         "transition_ms": 500, "hold_ms": 5000, "return_ms": 500}
 EVENT_ORDER = ("instruction", "baseline", "transition", "target", "return", "response")
 DEFAULT_CONFIG = {
     "neutral": {
@@ -203,7 +205,7 @@ class ExperimentStore:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
-    def create(self, participant_id, mode, config=None, seed=None, hardware_mode="mock"):
+    def create(self, participant_id, mode, config=None, seed=None, hardware_mode="mock", require_current_config=False):
         if not isinstance(participant_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", participant_id):
             raise ExperimentError("参加者IDは個人名を含まない英数字・ハイフン・アンダースコアで入力してください。")
         if mode not in ("pilot", "main"):
@@ -231,6 +233,7 @@ class ExperimentStore:
             "configuration_version": version_hash[:12],
             "configuration_hash": version_hash,
             "configuration": config,
+            "presentation_protocol": copy.deepcopy(PRESENTATION_PROTOCOL),
             "random_seed": str(seed),
             "generated_order": [trial["trial_slot_id"] for trial in order],
             "presentation_order": [trial["trial_slot_id"] for trial in order],
@@ -247,15 +250,17 @@ class ExperimentStore:
             "_participant_token": participant_token,
         }
         with self.lock:
-            self.current_config = copy.deepcopy(config)
-            self.config_initialized = True
+            if require_current_config and config != self.current_config:
+                raise ExperimentError("設定が更新されています。管理画面を再読み込みして新しい設定で作成してください。")
             self.sessions[session_id] = session
             self._save()
         return self.admin_view(session), participant_token
 
-    def update_current_config(self, config):
+    def update_current_config(self, config, expected_version=None, check_version=False):
         config = validate_config(config)
         with self.lock:
+            if check_version and expected_version != self.config_version():
+                raise ExperimentError("設定が更新されています。画面を再読み込みしてください。古い設定は保存しませんでした。")
             self.current_config = copy.deepcopy(config)
             self.config_initialized = True
             self._save()
@@ -267,7 +272,8 @@ class ExperimentStore:
 
     def get_config_state(self):
         with self.lock:
-            return {"config": copy.deepcopy(self.current_config), "config_initialized": self.config_initialized}
+            return {"config": copy.deepcopy(self.current_config), "config_initialized": self.config_initialized,
+                    "config_version": self.config_version()}
 
     def config_version(self):
         return hashlib.sha256(_stable_json(self.get_current_config()).encode("utf-8")).hexdigest()[:12]
@@ -287,6 +293,7 @@ class ExperimentStore:
         view.pop("_participant_token", None)
         view["participant_url"] = f"/experiment/participant?session={session['session_id']}#access={session['_participant_token']}"
         view["duplicate_physical_states"] = self.duplicate_states(session["trials"])
+        view["baseline"] = copy.deepcopy(session["configuration"]["neutral"])
         if not include_trials:
             view.pop("trials", None)
             view.pop("configuration", None)
@@ -328,6 +335,8 @@ class ExperimentStore:
             return {
                 "ok": True, "session_id": session_id, "status": session["status"],
                 "hardware_mode": session.get("hardware_mode", "mock"),
+                "baseline": copy.deepcopy(session["configuration"]["neutral"]),
+                "presentation_protocol": copy.deepcopy(session.get("presentation_protocol")),
                 "consented": session["consent_at"] is not None,
                 "progress": {"completed": session["next_index"], "total": len(session["trials"])},
                 "practice_done": session["practice_response"] is not None,
@@ -375,6 +384,8 @@ class ExperimentStore:
                 raise ExperimentError("同意を記録してから開始してください。")
             if session["status"] in ("completed", "aborted", "declined"):
                 raise ExperimentError("このセッションは開始できません。")
+            if session["started_at"] is None and (session["configuration"] != self.current_config or session.get("presentation_protocol") != PRESENTATION_PROTOCOL):
+                raise ExperimentError("このセッションは以前の設定です。管理画面から新しいセッションを作成してください。")
             session["status"] = "running"
             if session["started_at"] is None:
                 session["started_at"] = self.wall_clock()
@@ -600,7 +611,7 @@ class ExperimentStore:
         with self.lock:
             session = self._session(session_id)
             output = io.StringIO(newline="")
-            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
+            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "presentation_protocol", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
             writer = csv.DictWriter(output, fieldnames=fields)
             writer.writeheader()
             for trial in session["trials"]:
@@ -613,6 +624,7 @@ class ExperimentStore:
                     "trial_slot_id": trial["trial_slot_id"], "intended_emotion": trial["intended_emotion"],
                     "factors": "".join(trial["factors"]), "physical_state_id": trial["physical_state_id"],
                     "target_values": _stable_json(trial["actual_target_values"]), "baseline_values": _stable_json(session["configuration"]["neutral"]),
+                    "presentation_protocol": _stable_json(session.get("presentation_protocol")),
                     "perceived_emotion": response.get("perceived_emotion"), "confidence": response.get("confidence"),
                     "emotion_response_at": response.get("emotion_response_at"), "response_latency_ms": response.get("response_latency_ms"),
                     "device_result": _stable_json(trial.get("device_result")) if trial.get("device_result") else "",

@@ -1,4 +1,5 @@
 import json
+import copy
 from pathlib import Path
 import sys
 import tempfile
@@ -86,7 +87,7 @@ class ExperimentHttpTests(unittest.TestCase):
         self.assertNotIn("trials", participant_view)
         self.assertNotIn("intended_emotion", participant_view)
 
-        args = {"session_id": session_id, "access": access}
+        args = {"session_id": session_id, "access": access, "protocol_version": 2}
         self.request("/api/experiment/consent", {**args, "accepted": True})
         self.request("/api/experiment/start", args)
         _, _, raw = self.request("/api/experiment/trial/start", args)
@@ -103,6 +104,26 @@ class ExperimentHttpTests(unittest.TestCase):
         _, headers, csv_raw = self.request(f"/api/experiment/export/{session_id}.csv", admin=True)
         self.assertIn("text/csv", headers["Content-Type"])
         self.assertIn(b"trial_slot_id", csv_raw)
+
+    def test_stale_config_requests_cannot_restore_old_baseline(self):
+        _, _, raw = self.request("/api/experiment/config", admin=True)
+        saved = json.loads(raw)
+        stale = copy.deepcopy(saved["config"])
+        stale["neutral"]["eyelid_open_percent"] = 65
+        for path, body in [
+            ("/api/experiment/config", {"config": stale}),
+            ("/api/experiment/config", {"config": stale, "expected_version": "old-version"}),
+            ("/api/experiment/session/create", {"participant_id": "STALE", "mode": "pilot", "config": stale}),
+        ]:
+            with self.subTest(path=path), self.assertRaises(HTTPError) as error:
+                self.request(path, body, admin=True)
+            self.assertEqual(error.exception.code, 400)
+            error.exception.close()
+        _, _, raw = self.request("/api/experiment/config", admin=True)
+        self.assertEqual(json.loads(raw)["config"], saved["config"])
+        _, _, raw = self.request("/api/experiment/config", {
+            "config": saved["config"], "expected_version": saved["config_version"]}, admin=True)
+        self.assertEqual(json.loads(raw)["config_version"], saved["config_version"])
 
     def test_participant_page_is_served_as_separate_route(self):
         status, headers, body = self.request("/experiment/participant")

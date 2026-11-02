@@ -1,4 +1,5 @@
 import csv
+import copy
 import io
 import json
 from pathlib import Path
@@ -87,6 +88,31 @@ class ExperimentEngineTests(unittest.TestCase):
         self.assertEqual(self.store._session(sid)["practice"]["status"], "invalid")
         with self.assertRaises(ExperimentError):
             self.store.answer(sid, token, "anger", 3, 1000)
+
+    def test_old_session_config_never_overwrites_current_defaults(self):
+        old = copy.deepcopy(DEFAULT_CONFIG)
+        old["neutral"]["eyelid_open_percent"] = 65
+        session, token = self.store.create("OLD", "pilot", old)
+        self.assertEqual(self.store.get_current_config(), DEFAULT_CONFIG)
+        self.assertEqual(session["configuration"]["neutral"]["eyelid_open_percent"], 65)
+        self.store.consent(session["session_id"], token, True)
+        with self.assertRaises(ExperimentError):
+            self.store.start(session["session_id"], token)
+        with self.assertRaises(ExperimentError):
+            self.store.create("OLD2", "pilot", old, require_current_config=True)
+        version = self.store.config_version()
+        self.store.update_current_config(old, expected_version=version, check_version=True)
+        with self.assertRaises(ExperimentError):
+            self.store.update_current_config(DEFAULT_CONFIG, expected_version=version, check_version=True)
+        with self.assertRaises(ExperimentError):
+            self.store.update_current_config(DEFAULT_CONFIG, check_version=True)
+
+    def test_new_protocol_is_snapshotted_and_exported(self):
+        sid, token = self.create_running()
+        session = self.store._session(sid)
+        self.assertEqual(session["presentation_protocol"], {"version":2,"instruction_ms":2000,"baseline_wait_ms":0,"transition_ms":500,"hold_ms":5000,"return_ms":500})
+        self.assertEqual(self.store.participant_view(sid, token)["baseline"]["eyelid_open_percent"], 40)
+        self.assertIn('presentation_protocol', self.store.csv_export(sid).splitlines()[0])
 
     def test_latest_confirmed_defaults_are_used_and_old_candidate_values_are_not(self):
         self.assertEqual(DEFAULT_CONFIG["emotions"]["anger"]["gaze_vertical_deg"], 0)

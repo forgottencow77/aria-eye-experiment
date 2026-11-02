@@ -157,6 +157,7 @@ class ExperimentHardware:
         self.token = None
         self.sequence = 0
         self.neutral = None
+        self.at_baseline = False
 
     @staticmethod
     def payload(values):
@@ -186,6 +187,7 @@ class ExperimentHardware:
 
     def _acquire(self, session_id):
         live = self.controller.live
+        live.expire()
         if self.session_id not in (None, session_id) and self.token and live.token == self.token:
             raise LiveControlError("別の実験セッションが実機を操作中です。")
         if self.token and live.token == self.token and self.session_id == session_id:
@@ -194,13 +196,14 @@ class ExperimentHardware:
         self.token = None
         if live.token:
             raise LiveControlError("手動調整が実機を操作中です。先に終了してください。")
-        self.token = live.start()["token"]
+        self.token = live.start(fallback=self.payload(self.neutral))["token"]
+        self.at_baseline = False
         self.session_id = session_id
         self.sequence = 0
 
     def actuate(self, session, current, name):
         values = None
-        if name == "baseline":
+        if name == "instruction":
             values = session["configuration"]["neutral"]
         elif name == "transition":
             values = current["visual"]
@@ -210,17 +213,21 @@ class ExperimentHardware:
         with self.lock:
             # After baseline acquisition, a lost lease invalidates this attempt.
             # Do not silently acquire a new lease halfway through a presentation.
-            if name not in ("instruction", "baseline"):
+            if name != "instruction":
                 if not self.keepalive(session_id).get("active"):
                     raise LiveControlError("実機の操作権が失われました。再提示してください。")
             if values is None:
                 return {"mode": "hardware", "status": "no_command", "event": name}
             self.neutral = copy.deepcopy(session["configuration"]["neutral"])
             self._acquire(session_id)
+            if name == "instruction" and self.at_baseline:
+                self.keepalive(session_id)
+                return {"mode": "hardware", "status": "baseline_already_held", "event": name}
             requested_at = utc_now()
             self.sequence += 1
             result = self.controller.live.input({"token": self.token, "sequence": self.sequence,
                                                  **self.payload(values)})
+            self.at_baseline = name in ("instruction", "return")
             return {"mode": "hardware", "status": "accepted", "event": name,
                     "command_requested_at": requested_at, "command_accepted_at": utc_now(),
                     "target_values": copy.deepcopy(values), "controller_sequence": result.get("sequence"),
@@ -240,16 +247,13 @@ class ExperimentHardware:
             token = self.token
             try:
                 if self.controller.live.token == token:
-                    if self.neutral:
-                        self.sequence += 1
-                        self.controller.live.input({"token": token, "sequence": self.sequence,
-                                                    **self.payload(self.neutral)})
                     self.controller.live.stop({"token": token})
             finally:
                 self.session_id = None
                 self.token = None
                 self.sequence = 0
                 self.neutral = None
+                self.at_baseline = False
             return {"ok": True}
 
 
@@ -365,7 +369,7 @@ class Handler(BaseHTTPRequestHandler):
                       "/api/experiment/session/state": lambda: self.experiments.participant_view(body.get("session_id"), body.get("access")),
                       "/api/experiment/consent": lambda: self.experiments.consent(body.get("session_id"), body.get("access"), body.get("accepted")),
                       "/api/experiment/start": lambda: self.experiments.start(body.get("session_id"), body.get("access")),
-                      "/api/experiment/trial/start": lambda: self.experiments.begin_trial(body.get("session_id"), body.get("access"), body.get("replay", False)),
+                      "/api/experiment/trial/start": lambda: self._begin_experiment_trial(body),
                       "/api/experiment/trial/event": lambda: self._experiment_event(body),
                       "/api/experiment/heartbeat": lambda: self._experiment_heartbeat(body),
                       "/api/experiment/hardware/stop": lambda: self._experiment_hardware_stop(body),
@@ -385,11 +389,17 @@ class Handler(BaseHTTPRequestHandler):
         if hardware_mode == "hardware":
             self.hardware.preflight()
         session, token = self.experiments.create(body.get("participant_id"), body.get("mode"),
-                                                 body.get("config"), body.get("random_seed"), hardware_mode)
+                                                 body.get("config"), body.get("random_seed"), hardware_mode, require_current_config=True)
         return {"ok": True, "session": session, "access": token}
 
+    def _begin_experiment_trial(self, body):
+        if body.get("protocol_version") != 2:
+            raise ExperimentError("提示手順が更新されています。参加者画面を再読み込みしてください。")
+        return self.experiments.begin_trial(body.get("session_id"), body.get("access"), body.get("replay", False))
+
     def _update_experiment_config(self, body):
-        return {"ok": True, "config": self.experiments.update_current_config(body.get("config"))}
+        self.experiments.update_current_config(body.get("config"), expected_version=body.get("expected_version"), check_version=True)
+        return {"ok": True, **self.experiments.get_config_state()}
 
     def _experiment_event(self, body):
         return self.experiments.event(body.get("session_id"), body.get("access"),
