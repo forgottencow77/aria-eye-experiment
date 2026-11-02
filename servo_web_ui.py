@@ -35,8 +35,8 @@ CHANNELS = [
     {'id': 1, 'name': '2 右目 左右', 'short': 'R-LR', 'min': 250, 'max': 2600, 'home': 1450},
     {'id': 2, 'name': '3 左目 左右', 'short': 'L-LR', 'min': 250, 'max': 2600, 'home': 1600},
     {'id': 3, 'name': '4 左目 上下', 'short': 'L-UD', 'min': 250, 'max': 2600, 'home': 1550},
-    {'id': 4, 'name': '5 右目 瞼', 'short': 'R-LID', 'min': 250, 'max': 2600, 'home': 2000},
-    {'id': 5, 'name': '6 左目 瞼', 'short': 'L-LID', 'min': 250, 'max': 2600, 'home': 1000},
+    {'id': 4, 'name': '5 右目 瞼', 'short': 'R-LID', 'min': 250, 'max': 2600, 'home': 850},
+    {'id': 5, 'name': '6 左目 瞼', 'short': 'L-LID', 'min': 250, 'max': 2600, 'home': 2200},
     {'id': 6, 'name': '右眉の左右の傾き', 'short': 'R-BROW-TILT', 'min': 1291, 'max': 1609, 'home': 1450, 'min_label': '困り眉', 'max_label': '反対傾き'},
     {'id': 7, 'name': '右眉の真ん中', 'short': 'R-BROW-MID', 'min': 800, 'max': 2300, 'home': 1450, 'min_label': '眉が下がる', 'max_label': '眉が上がる'},
     {'id': 8, 'name': '左眉の左右の傾き', 'short': 'L-BROW-TILT', 'min': 1300, 'max': 2000, 'home': 1500, 'min_label': '反対傾き', 'max_label': '困り眉'},
@@ -71,12 +71,15 @@ STARTUP_RELEASE_CHANNEL_IDS = EYEBROW_CHANNEL_IDS
 
 # Observer-facing calibration. Web gaze is normalized to -1..1 and uses the
 # measured mechanical envelope directly.
-SYNC_CENTER = {0: 1600, 1: 1450, 2: 1600, 3: 1550, 4: 2000, 5: 1000}
+# Eyelid endpoint polarity is based on the reported physical behavior:
+# 850/2200 us = open; 2000/1000 us = closed. Keep blink=0 open,
+# blink=1 closed so ordinary clients and the stale fallback agree.
+SYNC_CENTER = {0: 1600, 1: 1450, 2: 1600, 3: 1550, 4: 850, 5: 2200}
 SYNC_LEFT = {1: 950, 2: 1100}
 SYNC_RIGHT = {1: 2200, 2: 2000}
 SYNC_DOWN = {0: 1700, 3: 1450}
 SYNC_UP = {0: 1200, 3: 1950}
-SYNC_CLOSED = {4: 850, 5: 2200}
+SYNC_CLOSED = {4: 2000, 5: 1000}
 SYNC_EYE_ENVELOPE = 1.0
 SYNC_STALE_SECONDS = 1.8
 SYNC_GAZE_ALPHA = 0.25
