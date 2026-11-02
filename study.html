@@ -7,6 +7,7 @@
 <meta name="description" content="ARIAに設定した6感情の虹彩色、上瞼開度、視線を確認するページ">
 <title>ARIA — 感情設定</title>
 <style>
+[hidden]{display:none!important}
 :root{color-scheme:light;--bg:#f5f4f1;--surface:#fff;--text:#242520;--muted:#777870;--line:#e5e3dd;--accent:#394235;--soft:#eef0e9;--iris:#bfbfbf;--gx:0;--gy:0;--open:.65;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:var(--text);background:var(--bg)}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-size:15px}button{font:inherit;color:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:wait}button:focus-visible{outline:3px solid #82966b;outline-offset:2px}.topbar{height:64px;padding:0 max(24px,calc((100vw - 1080px)/2));display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:rgba(255,255,255,.78)}.brand{display:flex;align-items:center;gap:11px;font-size:14px;font-weight:650}.brand-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--accent);color:white;font-size:12px}.mode{font-size:12px;color:var(--muted)}.page{max-width:1080px;margin:0 auto;padding:38px 24px 54px}.intro{margin-bottom:24px}.eyebrow{color:#7b806f;font-size:11px;font-weight:650;letter-spacing:.12em}.intro h1{font-size:clamp(27px,4vw,36px);letter-spacing:-.04em;line-height:1.15;margin:8px 0;font-weight:650}.intro p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 16px rgba(27,29,23,.035)}.emotion-card{padding:18px}.section-title{display:block;margin:0 0 12px;font-size:13px;font-weight:650}.emotions{display:grid;gap:7px}.emotion{min-height:43px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:white;text-align:left;color:#555750;font-size:14px;transition:border-color .15s,background .15s,color .15s}.emotion:hover{border-color:#a7ae9c}.emotion[aria-pressed=true]{border-color:var(--accent);background:var(--accent);color:white}.detail-card{padding:18px}.detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.detail-head h2{margin:0;font-size:18px;font-weight:650}.status{font-size:12px;color:var(--muted);text-align:right}.eye-stage{height:260px;position:relative;overflow:hidden;display:grid;place-items:center;border-radius:12px;background:radial-gradient(ellipse at center,#f5f2e9 0,#eeece5 60%,#e6e4dd 100%)}.eye-stage:before,.eye-stage:after{content:"";position:absolute;pointer-events:none;background:#69705e12}.eye-stage:before{width:1px;height:88%;top:6%;left:50%}.eye-stage:after{height:1px;width:90%;left:5%;top:50%}.eye-pair{z-index:1;display:flex;align-items:center;gap:16px;transform:translateY(5px)}.eye{position:relative;width:clamp(116px,16vw,170px);height:88px;overflow:hidden;border-radius:50% / 55%;background:linear-gradient(180deg,#fffefa,#eeeade 80%,#ddd9ca);box-shadow:inset 0 -5px 14px #55513b18,0 7px 16px #3333;transform:scaleY(clamp(.12,var(--open),1));transition:transform .12s ease}.iris{position:absolute;left:50%;top:50%;width:60px;height:66px;transform:translate(calc(-50% + var(--gx)*20px),calc(-50% - var(--gy)*14px));border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff9 0 5%,transparent 6%),radial-gradient(circle at 48% 48%,#141914 0 21%,color-mix(in srgb,var(--iris) 82%,#242822 18%) 23% 58%,color-mix(in srgb,var(--iris) 52%,#10140f 48%) 62% 81%,#23291f 84%);box-shadow:0 0 0 2px #171b1540;transition:background .12s ease}.pupil{position:absolute;left:50%;top:50%;width:24px;height:31px;transform:translate(-50%,-50%);border-radius:50%;background:#10140f}.glint{position:absolute;top:15px;left:18px;width:8px;height:8px;border-radius:50%;background:#fffbe8}.caption{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:#888981;font-size:11px}.values{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}.value-card{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff}.value-label{display:block;margin-bottom:8px;color:var(--muted);font-size:11px}.value-main{font-size:15px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}.value-sub{margin-top:5px;color:#85867f;font-size:11px;line-height:1.4}.swatch{display:inline-block;width:13px;height:13px;margin-right:7px;border:1px solid #0002;border-radius:50%;vertical-align:-2px}.device-controls{margin-top:14px;padding:13px;border-radius:10px;background:#f7f7f4}.device-actions{display:flex;flex-wrap:wrap;gap:8px}.primary{min-height:42px;padding:0 16px;border:0;border-radius:9px;background:var(--accent);color:white;font-weight:650;font-size:13px}.secondary{min-height:42px;padding:0 13px;border:1px solid var(--line);border-radius:9px;background:white;color:var(--text);font-size:13px}.notice{margin:9px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.footnote{margin:16px 2px 0;color:#85867f;font-size:11px;line-height:1.55}.rationale,.baseline{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fff}.rationale-head,.baseline-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.rationale-head strong,.baseline-head strong{font-size:12px;font-weight:650}.rationale-head span{color:#85867f;font-size:10px}.intent,.caveat,.baseline p{margin:9px 0 0;font-size:12px;line-height:1.65;color:#555750}.caveat{padding-top:9px;border-top:1px solid var(--line);color:#777870}.caveat strong{margin-right:7px;color:#62655d;font-size:11px}.baseline{background:#f7f7f4}.baseline-head span{font-size:11px;font-weight:600;color:#62655d}.candidate-note{margin:9px 2px 0;color:#85867f;font-size:10px;line-height:1.5}.adjuster{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fff}.adjuster summary{padding:13px 14px;font-size:12px;font-weight:650;cursor:pointer;list-style:none}.adjuster summary::-webkit-details-marker{display:none}.adjuster summary:after{content:'＋';float:right;color:var(--muted)}.adjuster[open] summary:after{content:'−'}.slider-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 16px;padding:0 14px 14px}.slider-control{display:grid;gap:6px;color:#62655d;font-size:11px}.slider-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.slider-head output{font-size:11px;font-weight:650;color:var(--text)}input[type=range]{width:100%;margin:0;accent-color:var(--accent)}.adjuster-footer{display:flex;align-items:center;gap:10px;padding:0 14px 14px}.adjuster-footer span{color:#85867f;font-size:10px;line-height:1.45}.adjuster-footer .secondary{min-height:34px;white-space:nowrap;font-size:11px}@media(max-width:760px){.page{padding:28px 16px 40px}.layout{grid-template-columns:1fr}.emotion-card{order:0}.emotions{grid-template-columns:repeat(3,1fr)}.emotion{text-align:center;padding:8px 4px}.eye-stage{height:230px}.topbar{padding:0 16px}}@media(max-width:440px){.emotions{grid-template-columns:repeat(2,1fr)}.eye-stage{height:205px}.eye{width:36vw;height:72px}.iris{width:51px;height:56px}.values{grid-template-columns:1fr}.value-card{display:grid;grid-template-columns:85px 1fr;align-items:center;gap:5px 8px}.value-label{grid-row:span 2;margin:0}.value-sub{margin:0}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important}}
 </style>
 </head>
@@ -21,6 +22,17 @@
     <h1>設定した感情を見る</h1>
     <p>感情ごとの設定値と、選定の意図・注意点を確認できます。</p>
   </section>
+  <p><label for="studyMode">表示モード </label><select id="studyMode"><option value="manual">感情の調整</option><option value="conditions">42条件の確認</option></select></p>
+  <section id="conditionControls" hidden aria-label="42条件の確認">
+    <p>ONは選んだ感情の値、OFFは共通基準B₀の値です。確認中は保存済み設定を固定します。</p>
+    <p><label for="conditionSelect">要素の組合せ </label><select id="conditionSelect">
+      <option value="C">色のみ</option><option value="L">瞼のみ</option><option value="G">視線のみ</option>
+      <option value="CL">色＋瞼</option><option value="CG">色＋視線</option><option value="LG">瞼＋視線</option><option value="CLG">色＋瞼＋視線</option>
+    </select></p>
+    <p><button id="previousCondition" class="secondary">前へ</button> <output id="conditionProgress" aria-live="polite"></output> <button id="nextCondition" class="secondary">次へ</button></p>
+    <p id="conditionFactors"></p><p id="conditionDuplicates" class="notice"></p>
+    <p class="notice">実機操作中は選んだ条件を保持します。自動では進みません。「正面・開眼へ戻す」で終了します。</p>
+  </section>
   <div class="layout">
     <aside class="card emotion-card">
       <span class="section-title">感情</span>
@@ -28,7 +40,7 @@
     </aside>
     <section class="card detail-card" aria-labelledby="selectedEmotion">
       <div class="detail-head"><h2 id="selectedEmotion">恐れ</h2><span id="deviceStatus" class="status">プレビュー</span></div>
-      <div id="device" class="eye-stage" style="--iris:#6639BF;--gx:.8;--gy:0;--open:.9">
+      <div id="device" hidden class="eye-stage" style="--iris:#6639BF;--gx:.8;--gy:0;--open:.9">
         <div class="eye-pair" aria-hidden="true">
           <div class="eye"><div class="iris"><div class="pupil"></div><div class="glint"></div></div></div>
           <div class="eye"><div class="iris"><div class="pupil"></div><div class="glint"></div></div></div>
@@ -50,16 +62,16 @@
           <label class="slider-control"><span class="slider-head">視線 左右 <output id="gazeXOutput">右 +20°</output></span><input id="gazeXSlider" data-param-slider type="range" min="-20" max="20" step="1"></label>
           <label class="slider-control"><span class="slider-head">視線 上下 <output id="gazeYOutput">正面 0°</output></span><input id="gazeYSlider" data-param-slider type="range" min="-20" max="20" step="1"></label>
         </div>
-        <div class="adjuster-footer"><button id="resetParams" class="secondary">この感情の初期値に戻す</button><span>プレビューは即時更新し、このブラウザに保存。実機操作中はスライダーに追従します。</span></div>
+        <div class="adjuster-footer"><button id="resetParams" class="secondary">この感情の初期値に戻す</button><span>調整値はサーバーに保存します。実機操作中はスライダーに追従します。</span></div>
       </details>
-      <section class="rationale" aria-labelledby="rationaleTitle">
+      <section id="rationale" class="rationale" aria-labelledby="rationaleTitle">
         <div class="rationale-head"><strong id="rationaleTitle">設定意図</strong><span>提案文にある狙いと注意点</span></div>
         <p id="emotionIntent" class="intent"></p>
         <p class="caveat"><strong>注意</strong><span id="emotionCaveat"></span></p>
       </section>
       <section class="baseline" aria-label="共通基準 B0">
-        <div class="baseline-head"><strong>共通基準 B₀</strong><span>#BFBFBF · 上瞼65% · 下向き8°</span></div>
-        <p>灰色で色の連想を抑え、下8°を共通基準にしています。心理的に中立である根拠はありません。</p>
+        <div class="baseline-head"><strong>共通基準 B₀</strong><span id="baselineValues"></span></div>
+        <p>OFFの要素には、この保存済みの共通基準を使います。上下は調整時のUI値です。</p>
       </section>
       <p class="candidate-note">色と数値は予備実験用の候補です。感情との対応や実機での見え方は、まだ確立されたものではありません。</p>
       <div id="deviceControls" class="device-controls" hidden>
@@ -83,7 +95,18 @@ const DEVICE_MODE=location.pathname==='/study';
 let emotion=EMOTIONS.find(x=>x.id==='fear');
 const SETTINGS_KEY='aria-emotion-settings-v2';
 let neutralConfig={iris_hex:'#BFBFBF',eyelid_open_percent:65,gaze_horizontal_deg:0,gaze_vertical_deg:-8};
-let serverConfigTimer=0;
+let serverConfigTimer=0,serverConfigSave=Promise.resolve();
+const CONDITION_ORDER=['C','L','G','CL','CG','LG','CLG'];
+let inspectionTrials=[],inspectionConfig=null,conditionFactors='C',inspectionLoading=false;
+function isInspection(){return el('studyMode').value==='conditions'}
+function currentTrial(){return inspectionTrials.find(row=>row.intended_emotion===emotion.id&&row.factors.join('')===conditionFactors)}
+function selectedLabel(){return emotion.name+(isInspection()?' / '+conditionFactors:'')}
+function saveServerSettings(){
+  clearTimeout(serverConfigTimer);serverConfigTimer=0;
+  const config=buildServerConfig();
+  serverConfigSave=serverConfigSave.catch(()=>{}).then(()=>api('/api/experiment/config',config));
+  return serverConfigSave;
+}
 function boundedSetting(value,low,high,fallback){const number=Number(value);return Number.isFinite(number)?Math.max(low,Math.min(high,number)):fallback}
 function loadSettings(){
   let saved={};
@@ -94,7 +117,10 @@ function loadSettings(){
     return [item.id,{hsv:[boundedSetting(hsv[0],0,359,item.hsv[0]),boundedSetting(hsv[1],0,100,item.hsv[1]),boundedSetting(hsv[2],0,100,item.hsv[2])],lid:boundedSetting(value.lid,0,1,item.lid),gaze:[boundedSetting(gaze[0],-20,20,item.gaze[0]),boundedSetting(gaze[1],-20,20,item.gaze[1])]}];
   }));
 }
-function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}if(DEVICE_MODE){clearTimeout(serverConfigTimer);serverConfigTimer=setTimeout(function(){api('/api/experiment/config',buildServerConfig()).catch(function(error){controlError='サーバーへの設定保存に失敗しました: '+error.message;renderSelected()})},350)}}
+function saveSettings(){
+  try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settingsByEmotion))}catch{}
+  if(DEVICE_MODE){clearTimeout(serverConfigTimer);serverConfigTimer=setTimeout(()=>{saveServerSettings().catch(error=>{controlError='サーバーへの設定保存に失敗しました: '+error.message;renderSelected()})},350)}
+}
 const settingsByEmotion=loadSettings();
 let deviceToken=null,deviceSequence=0,deviceHeartbeat=0,appliedEmotion=null;
 let deviceUpdateTimer=0,deviceUpdateBusy=false,deviceUpdatePending=false,controlError='';
@@ -123,14 +149,58 @@ async function loadServerConfig(){if(!DEVICE_MODE)return;const data=await api('/
 function deviceState(item){
   return {
     pose:{x:Math.max(-1,Math.min(1,item.gaze[0]/20)),y:Math.max(-1,Math.min(1,item.gaze[1]/20)),openness:1-item.lid},
-    irisColor:hsvHex(item.hsv)
+    irisColor:item.irisHex||hsvHex(item.hsv)
   };
 }
 function gazeLabel(value,positive,negative){
   if(value===0)return '正面 0°';
   return (value>0?positive:negative)+' '+Math.abs(value)+'°';
 }
-function currentSettings(){return settingsByEmotion[emotion.id]}
+function currentSettings(){
+  if(!isInspection()||!currentTrial())return settingsByEmotion[emotion.id];
+  const row=currentTrial().actual_target_values;
+  return {irisHex:row.iris_hex,hsv:hexHsv(row.iris_hex),lid:row.eyelid_open_percent/100,gaze:[row.gaze_horizontal_deg,row.gaze_vertical_deg]};
+}
+function renderConditions(){
+  const reviewing=isInspection();
+  el('conditionControls').hidden=!reviewing;
+  el('adjuster').hidden=reviewing;el('rationale').hidden=reviewing;
+  el('studyMode').disabled=inspectionLoading;
+  el('conditionSelect').value=conditionFactors;
+  const trial=currentTrial(),index=inspectionTrials.indexOf(trial);
+  el('conditionProgress').textContent=trial?(index+1)+' / '+inspectionTrials.length+' · '+trial.trial_slot_id:'読み込み中';
+  el('previousCondition').disabled=index<=0||inspectionLoading;
+  el('nextCondition').disabled=index<0||index>=inspectionTrials.length-1||inspectionLoading;
+  el('conditionSelect').disabled=inspectionLoading;
+  el('conditionFactors').textContent=['C','L','G'].map((factor,i)=>['色','瞼','視線'][i]+': '+(conditionFactors.includes(factor)?'ON（感情の値）':'OFF（B₀）')).join(' / ');
+  const duplicates=trial?inspectionTrials.filter(row=>row!==trial&&row.physical_state_id===trial.physical_state_id):[];
+  el('conditionDuplicates').textContent=duplicates.length?'同じ設定の条件: '+duplicates.map(row=>row.trial_slot_id).join('、'):'';
+  const base=reviewing&&inspectionConfig?inspectionConfig.neutral:neutralConfig;
+  el('baselineValues').textContent=base.iris_hex+' · 瞼UI値 '+base.eyelid_open_percent+'% · 左右 '+base.gaze_horizontal_deg+'° · 上下 '+base.gaze_vertical_deg+'°';
+}
+async function changeStudyMode(){
+  inspectionLoading=true;renderSelected();
+  try{
+    await releaseDevice();
+    if(isInspection()){
+      if(serverConfigTimer)await saveServerSettings();else await serverConfigSave;
+      const config=DEVICE_MODE?(await api('/api/experiment/config')).config:buildServerConfig();
+      const result=await api('/api/experiment/preview',{config});
+      inspectionConfig=config;
+      inspectionTrials=result.trials.sort((a,b)=>EMOTIONS.findIndex(e=>e.id===a.intended_emotion)-EMOTIONS.findIndex(e=>e.id===b.intended_emotion)||CONDITION_ORDER.indexOf(a.factors.join(''))-CONDITION_ORDER.indexOf(b.factors.join('')));
+      emotion=EMOTIONS[0];conditionFactors='C';
+    }
+    controlError='';
+  }catch(error){el('studyMode').value='manual';controlError='条件を読み込めません: '+error.message}
+  finally{inspectionLoading=false;render()}
+}
+function stepCondition(delta){
+  const index=inspectionTrials.indexOf(currentTrial());
+  const trial=inspectionTrials[index+delta];
+  if(!trial||inspectionLoading)return;
+  emotion=EMOTIONS.find(item=>item.id===trial.intended_emotion);
+  conditionFactors=trial.factors.join('');render();queueDeviceUpdate();
+}
 function renderEyes(settings){
   const stage=el('device');
   stage.style.setProperty('--iris',hsvHex(settings.hsv));
@@ -140,8 +210,9 @@ function renderEyes(settings){
 }
 function renderSelected(){
   const settings=currentSettings();
-  el('selectedEmotion').textContent=emotion.name;
-  const color=hsvHex(settings.hsv);
+  renderConditions();
+  el('selectedEmotion').textContent=selectedLabel();
+  const color=settings.irisHex||hsvHex(settings.hsv);
   el('colorValue').innerHTML='<i class="swatch" style="background:'+color+'"></i>'+color;
   el('colorDetail').textContent='HSV '+settings.hsv[0]+'° · '+settings.hsv[1]+'% · '+settings.hsv[2]+'%';
   el('lidValue').textContent=Math.round(settings.lid*100)+'%';
@@ -158,10 +229,10 @@ function renderSelected(){
   renderEyes(settings);
   document.querySelectorAll('[data-emotion]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.emotion===emotion.id)));
   if(DEVICE_MODE){
-    const applied=EMOTIONS.find(item=>item.id===appliedEmotion);
-    el('deviceStatus').textContent=controlError|| (deviceToken?'実機操作中'+(applied?' · '+applied.name:''):'実機は待機中');
+    const applied=appliedEmotion;
+    el('deviceStatus').textContent=controlError|| (deviceToken?'実機操作中'+(applied?' · '+applied:''):'実機は待機中');
     el('applyButton').textContent=deviceToken?'実機操作中':'実機操作を開始';
-    el('applyButton').disabled=Boolean(deviceToken);
+    el('applyButton').disabled=Boolean(deviceToken)||inspectionLoading;
     el('releaseButton').hidden=!deviceToken;
   }else{
     el('deviceStatus').textContent='プレビュー';
@@ -188,8 +259,9 @@ function startHeartbeat(){
 }
 async function sendDeviceState(){
   if(!deviceToken)return;
+  const label=selectedLabel();
   await api('/api/live/input',Object.assign({token:deviceToken,sequence:deviceSequence++},deviceState(currentSettings())));
-  appliedEmotion=emotion.id;
+  appliedEmotion=label;
 }
 function queueDeviceUpdate(){
   if(!deviceToken)return;
@@ -200,7 +272,7 @@ function queueDeviceUpdate(){
 async function flushDeviceUpdate(){
   if(deviceUpdateBusy||!deviceUpdatePending||!deviceToken)return;
   deviceUpdateBusy=true;deviceUpdatePending=false;
-  try{await sendDeviceState();controlError='';el('notice').textContent='実機操作中です。色・瞼・視線のスライダーが実機へ追従します。'}
+  try{await sendDeviceState();controlError='';el('notice').textContent=isInspection()?'実機操作中です。選んだ条件を保持しています。前へ・次へで切り替えられます。':'実機操作中です。色・瞼・視線のスライダーが実機へ追従します。'}
   catch(error){
     controlError=error.message||'実機との接続が切れました';
     const old=deviceToken;deviceToken=null;appliedEmotion=null;
@@ -213,6 +285,7 @@ async function flushDeviceUpdate(){
   }
 }
 function updateSliderSettings(){
+  if(isInspection()||inspectionLoading)return;
   const settings=currentSettings();
   settings.hsv=[Number(el('hueSlider').value),Number(el('satSlider').value),Number(el('valSlider').value)];
   settings.lid=Number(el('lidSlider').value)/100;
@@ -220,7 +293,7 @@ function updateSliderSettings(){
   saveSettings();renderSelected();queueDeviceUpdate();
 }
 async function applyToDevice(){
-  if(!DEVICE_MODE||deviceToken)return;
+  if(!DEVICE_MODE||deviceToken||inspectionLoading)return;
   el('applyButton').disabled=true;controlError='';el('deviceStatus').textContent='実機へ接続中…';
   try{
     deviceToken=(await api('/api/live/start',{})).token;deviceSequence=0;startHeartbeat();
@@ -246,15 +319,20 @@ async function releaseDevice(){
 }
 el('emotions').addEventListener('click',function(event){
   const button=event.target.closest('[data-emotion]');
-  if(!button)return;
+  if(!button||inspectionLoading)return;
   emotion=EMOTIONS.find(item=>item.id===button.dataset.emotion);
   controlError='';render();queueDeviceUpdate();
 });
 document.querySelectorAll('[data-param-slider]').forEach(function(slider){slider.addEventListener('input',updateSliderSettings)});
 el('resetParams').addEventListener('click',function(){
+  if(isInspection()||inspectionLoading)return;
   settingsByEmotion[emotion.id]={hsv:emotion.hsv.slice(),lid:emotion.lid,gaze:emotion.gaze.slice()};
   saveSettings();controlError='';renderSelected();queueDeviceUpdate();
 });
+el('studyMode').addEventListener('change',()=>{void changeStudyMode()});
+el('conditionSelect').addEventListener('change',()=>{conditionFactors=el('conditionSelect').value;renderSelected();queueDeviceUpdate()});
+el('previousCondition').addEventListener('click',()=>stepCondition(-1));
+el('nextCondition').addEventListener('click',()=>stepCondition(1));
 el('applyButton').addEventListener('click',function(){void applyToDevice()});
 el('releaseButton').addEventListener('click',function(){void releaseDevice()});
 if(DEVICE_MODE){

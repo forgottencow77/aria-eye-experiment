@@ -44,6 +44,26 @@ Hardware events record command request and controller acceptance times. The serv
 
 The study page saves manual emotion settings to the Pi. The values remain in the same UI convention used for adjustment; conversion to normalized servo openness happens only when a hardware command is sent.
 
+## Inspect all 42 conditions
+
+Open `/study`, then choose **42条件の確認** in the display-mode selector.
+The page takes a snapshot of the server-saved configuration and uses the same
+condition generator as the experiment. Choose an emotion and C/L/G combination,
+or use **前へ / 次へ** to walk through all 42 slots in order.
+
+ON uses that emotion's value; OFF uses the corresponding value from B₀, not zero
+or a disabled servo. The page shows the effective color, eyelid and gaze values,
+the current slot number, and other slots with identical settings. Adjustment
+controls are hidden in this mode, and reviewing conditions does not save presets
+or create participant responses.
+
+Press **実機操作を開始** to send the selected condition. While active, changing the
+selection sends the next condition and holds it until another selection or stop.
+**正面・開眼へ戻す** ends control using the existing stop behavior. Switching modes
+also ends control. This is a manual inspection tool, not the timed 0.5/3-second
+experiment sequence. To refresh the configuration snapshot, switch back to the
+adjustment mode and enter inspection mode again.
+
 ## Calibrated preset coordinates
 
 The emotion JSON retains the UI numbers used during the original tuning session.
