@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source": "Horizontal: user-confirmed screenshots. Eyelid direction: actual Pi servo sync mapping (center=2000/1000 is open, closed endpoints=850/2200). Screen yaw/pitch follow the supplied front-view convention.",
+  "source": "Horizontal endpoints and eyelid pulse bounds follow the recorded calibration. The Mac controller corrects the observed vertical inversion. The physical eyelid direction still differs from the Pi-side labels.",
   "channels": {
     "0": {
       "min": 1200,

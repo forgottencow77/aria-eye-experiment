@@ -164,7 +164,7 @@ class ExperimentHardware:
             "pose": {
                 "x": max(-1.0, min(1.0, float(values["gaze_horizontal_deg"]) / 20.0)),
                 "y": max(-1.0, min(1.0, float(values["gaze_vertical_deg"]) / 20.0)),
-                # The saved UI value runs opposite to physical openness: 0 is open, 100 is closed.
+                # Convert the saved UI value (0=open, 100=closed) to normalized openness.
                 "openness": 1.0 - float(values["eyelid_open_percent"]) / 100.0,
             },
             "irisColor": values["iris_hex"],

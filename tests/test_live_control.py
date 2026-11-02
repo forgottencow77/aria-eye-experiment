@@ -64,12 +64,12 @@ class LiveControlTests(unittest.TestCase):
 
     def test_normalized_pose_uses_only_eyes(self):
         self.live.input({"token": self.start(), "sequence": 1, "pose": {"x": -1, "y": 1, "openness": 0.25}})
-        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": 1}, "blink": 0.75, "eyeOnly": True}))
+        self.assertEqual(self.hardware.writes[-1], ("/api/sync", {"gaze": {"x": -1, "y": -1}, "blink": 0.75, "eyeOnly": True}))
         self.assertEqual(self.hardware.lcd_writes, [])
 
     def test_screen_directions_follow_horizontal_calibration_and_vertical_mapping(self):
         token = self.start()
-        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, 1), (0, -1, 0, -1)]
+        directions = [(-1, 0, -1, 0), (1, 0, 1, 0), (0, 1, 0, -1), (0, -1, 0, 1)]
         for sequence, (x, y, expected_x, expected_y) in enumerate(directions, 1):
             with self.subTest(x=x, y=y):
                 self.live.input({"token": token, "sequence": sequence, "pose": {"x": x, "y": y, "openness": 0.6}})
@@ -79,7 +79,7 @@ class LiveControlTests(unittest.TestCase):
 
     def test_reported_hardware_pose_maps_back_to_screen_direction(self):
         self.hardware.state["values"].update({"0": 1700, "1": 950, "2": 1100, "3": 1450})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 1})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 1})
 
     def test_ui_left_and_right_produce_the_exact_user_photographed_endpoints(self):
         from test_servo_eye_only import servo
@@ -188,7 +188,7 @@ class LiveControlTests(unittest.TestCase):
         self.hardware.state["sync"]["pose"] = {"x": 1, "y": -1, "blink": 1}
         self.assertEqual(self.live.status()["pose"], {"x": 0, "y": 0, "openness": 1})
         self.hardware.state["values"].update({"0": 1200, "1": 950, "2": 1100, "3": 1950, "4": 850, "5": 2200})
-        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": 1, "openness": 0})
+        self.assertEqual(self.live.status()["pose"], {"x": -1, "y": -1, "openness": 0})
 
 
 if __name__ == "__main__":

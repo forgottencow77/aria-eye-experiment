@@ -51,7 +51,8 @@ class LiveController:
     LEASE_SECONDS = 1.4
     # Horizontal endpoints follow the user's front-view calibration photographs.
     GAZE_X_DIRECTION = 1
-    GAZE_Y_DIRECTION = 1
+    # The installed Pi moves vertically opposite to the UI convention.
+    GAZE_Y_DIRECTION = -1
 
     def __init__(self, controller, lcd=None, now=time.monotonic):
         self.controller = controller
