@@ -20,6 +20,7 @@ from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT, ExperimentError, Ex
 ROOT = Path(__file__).resolve().parent
 EYE_IDS = frozenset(range(6))
 ALLOWED_POSTS = frozenset({"/api/nudge", "/api/center", "/api/release", "/api/record", "/api/move_saved"})
+SERVO_API_BASE = os.environ.get("ARIA_SERVO_API_BASE", "http://127.0.0.1:8768").rstrip("/")
 
 
 class Rejected(ValueError):
@@ -42,7 +43,7 @@ class Controller:
     @staticmethod
     def request_upstream(path, body=None):
         raw = None if body is None else json.dumps(body).encode()
-        request = Request("http://127.0.0.1:8768" + path, data=raw,
+        request = Request(SERVO_API_BASE + path, data=raw,
                           headers={"Content-Type": "application/json"} if raw is not None else {})
         try:
             with urlopen(request, timeout=50 if path == "/api/move_saved" else 3) as response:

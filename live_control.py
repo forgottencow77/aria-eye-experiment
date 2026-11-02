@@ -3,11 +3,14 @@
 import copy
 import json
 import math
+import os
 import re
 import secrets
 import threading
 import time
 from urllib.request import Request, urlopen
+
+LCD_API_BASE = os.environ.get("ARIA_LCD_API_BASE", "http://127.0.0.1:8769").rstrip("/")
 
 
 class LiveControlError(ValueError):
@@ -42,7 +45,7 @@ class LiveController:
     @staticmethod
     def request_lcd(body=None):
         data = None if body is None else json.dumps(body).encode()
-        request = Request("http://127.0.0.1:8769/api/state", data=data,
+        request = Request(LCD_API_BASE + "/api/state", data=data,
                           headers={"Content-Type": "application/json"} if data else {})
         with urlopen(request, timeout=3) as response:
             result = json.load(response)

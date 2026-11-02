@@ -22,6 +22,16 @@ http://<Pi Ethernet IP>:8767/experiment/admin
 
 The MacBook talks to the experiment UI on the Pi. The Pi then calls its local servo service on `127.0.0.1:8768` and iris LCD service on `127.0.0.1:8769`; the MacBook does not need direct access to those ports.
 
+If the Pi-hosted experiment UI on port 8767 is unavailable, the controller can run on the MacBook while sending commands to the Pi's servo and LCD services:
+
+```sh
+ARIA_SERVO_API_BASE=http://raspberrypi.local:8768 \
+ARIA_LCD_API_BASE=http://raspberrypi.local:8769 \
+python3 legacy_ui_server.py --host 127.0.0.1 --port 18867
+```
+
+Then open `http://127.0.0.1:18867/experiment/admin`. The MacBook controller stays bound to loopback and keeps the live-control lease locally. This requires network access to the Pi's ports 8768 and 8769; restrict those ports to a trusted link or use direct Ethernet.
+
 The systemd unit currently binds the web UI to all Pi interfaces. Use a dedicated direct link or restrict the bind address/firewall before connecting the Pi to a shared network. No external API account or API key is used. `ARIA_EXPERIMENT_ADMIN_TOKEN` is optional; if configured manually, enter it in the collapsed connection settings.
 
 ## Presentation modes
