@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 async function scenario(mode,failure){
   const calls=[],delays=[],elements=new Map();let timer=null;
-  const element=id=>{if(!elements.has(id))elements.set(id,{textContent:'',innerHTML:'',onclick:null,querySelector:()=>null});return elements.get(id)};
+  const element=id=>{if(!elements.has(id))elements.set(id,{textContent:'',innerHTML:'',onclick:null,querySelector:()=>null,setAttribute(){},removeAttribute(){}});return elements.get(id)};
   const context=vm.createContext({URLSearchParams,console,location:{search:'',hash:''},document:{getElementById:element},window:{addEventListener(){}},performance:{now:()=>0},setInterval:fn=>{timer=fn;return 1},clearInterval:()=>{timer=null},setTimeout,fetch:async(path,options)=>{
     const body=JSON.parse(options.body);calls.push({path,body});
     let data={ok:true};

@@ -88,3 +88,10 @@ th { position: sticky; top: 0; background: #edf1f5; }
   .session { grid-template-columns: 1fr; }
   .table-wrap { max-width: 100%; }
 }
+
+.phase-timing { width: min(100%, 360px); margin: 4px 0 20px; }
+.phase-countdown { display: block; margin-bottom: 8px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.phase-progress { display: block; width: 100%; height: 5px; border: 0; border-radius: 0; background: #dce2e9; accent-color: #64748b; }
+.phase-progress::-webkit-progress-bar { background: #dce2e9; }
+.phase-progress::-webkit-progress-value { background: #64748b; }
+.phase-progress::-moz-progress-bar { background: #64748b; }

@@ -23,3 +23,10 @@ class StudyConditionsTests(unittest.TestCase):
             ['node', 'tests/participant_heartbeat.cjs'], cwd=Path(__file__).resolve().parents[1],
             text=True, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipUnless(shutil.which('node'), 'Node.js is needed to execute participant UI logic')
+    def test_participant_countdown_uses_elapsed_time_and_stops_on_failure(self):
+        result = subprocess.run(
+            ['node', 'tests/participant_indicator.cjs'], cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

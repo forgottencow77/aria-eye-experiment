@@ -62,7 +62,11 @@ uses **2 s instruction at B₀ → 0.5 s transition → 5 s hold → 0.5 s retur
 There is no separate 0.5 s baseline phase. B₀ remains held while answering and waiting
 for the next trial. The `baseline` event remains a zero-wait pre-transition checkpoint
 for log compatibility. The nominal total is 8 s plus communication/storage overhead.
-These are software wait durations, not measured mechanical arrival times.
+The participant screen shows the current phase, remaining seconds, and a shrinking
+bar for each timed wait. Countdown updates use the same monotonic clock as the
+existing wait; API requests show an untimed processing state. The answer screen
+shows that there is no time limit. These are software wait durations, not measured
+mechanical arrival times.
 
 New sessions snapshot `presentation_protocol`, included in JSON and CSV exports.
 Old completed data are not rewritten. Old sessions with superseded settings/protocol
