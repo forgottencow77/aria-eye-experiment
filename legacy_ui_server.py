@@ -14,6 +14,7 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
+from experiment_clock import ExperimentClock, ClockError
 from live_control import LiveController, LiveControlError, resolve_ipv4_base_url
 from experiment_engine import DEFAULT_CONFIG, SPEC_SNAPSHOT, ExperimentError, ExperimentStore, generate_trials, utc_now, validate_config
 
@@ -150,8 +151,9 @@ class Controller:
 class ExperimentHardware:
     """Send explicitly enabled experiment poses through the existing live controller."""
 
-    def __init__(self, controller):
+    def __init__(self, controller, wall_clock=utc_now):
         self.controller = controller
+        self.wall_clock = wall_clock
         self.lock = threading.RLock()
         self.session_id = None
         self.token = None
@@ -223,13 +225,13 @@ class ExperimentHardware:
             if name == "instruction" and self.at_baseline:
                 self.keepalive(session_id)
                 return {"mode": "hardware", "status": "baseline_already_held", "event": name}
-            requested_at = utc_now()
+            requested_at = self.wall_clock()
             self.sequence += 1
             result = self.controller.live.input({"token": self.token, "sequence": self.sequence,
                                                  **self.payload(values)})
             self.at_baseline = name in ("instruction", "return")
             return {"mode": "hardware", "status": "accepted", "event": name,
-                    "command_requested_at": requested_at, "command_accepted_at": utc_now(),
+                    "command_requested_at": requested_at, "command_accepted_at": self.wall_clock(),
                     "target_values": copy.deepcopy(values), "controller_sequence": result.get("sequence"),
                     "position_feedback": False}
 
@@ -262,6 +264,7 @@ class Handler(BaseHTTPRequestHandler):
     hardware = None
     experiments = None
     admin_token = None
+    clock = None
 
     def send(self, status, data, content_type="application/json; charset=utf-8", extra_headers=None):
         raw = data if isinstance(data, bytes) else json.dumps(data, ensure_ascii=False).encode()
@@ -303,6 +306,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send(200, self.controller.live.status())
             elif path == "/api/state":
                 self.send(200, self.controller.public_state(self.controller.upstream(path)))
+            elif path == "/api/experiment/clock":
+                self.send(200, self.clock.status() if self.clock else {"ok": True, "verified": False})
             elif path == "/api/experiment/hardware/status":
                 self.send(200, self.hardware.preflight())
             elif path == "/api/experiment/config":
@@ -359,7 +364,13 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict):
                 raise Rejected("JSONオブジェクトが必要です。")
-            routes = {"/api/live/start": lambda: self.controller.live.start(),
+            clock_required = {"/api/experiment/session/create", "/api/experiment/consent", "/api/experiment/start",
+                              "/api/experiment/trial/start", "/api/experiment/trial/event", "/api/experiment/answer",
+                              "/api/experiment/break", "/api/experiment/feedback"}
+            if self.clock and path in clock_required:
+                self.clock.require_verified()
+            routes = {"/api/experiment/clock/sync": lambda: self._sync_experiment_clock(body),
+                      "/api/live/start": lambda: self.controller.live.start(),
                       "/api/live/input": lambda: self.controller.live.input(body),
                       "/api/live/keepalive": lambda: self.controller.live.keepalive(body),
                       "/api/live/stop": lambda: self.controller.live.stop(body),
@@ -383,6 +394,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {"ok": False, "error": str(error)})
         except Exception as error:
             self.send(502, {"ok": False, "error": str(error)})
+
+    def _sync_experiment_clock(self, body):
+        if not self.clock:
+            raise ClockError("時刻同期が利用できません。")
+        # A verified clock must not jump during a session. Initial verification
+        # after a reboot is allowed while no live controller owns the hardware;
+        # protected experiment actions cannot run before that verification.
+        with self.experiments.lock, self.controller.lock:
+            running = any(s["status"] == "running" for s in self.experiments.sessions.values())
+            if self.controller.live.token or (running and self.clock.status()["verified"]):
+                raise ClockError("実験または手動操作中は時計を変更できません。終了してから同期してください。")
+            return self.clock.sync(body.get("client_unix_ms"))
 
     def _create_experiment_session(self, body):
         hardware_mode = body.get("hardware_mode", "mock")
@@ -424,7 +447,7 @@ class Handler(BaseHTTPRequestHandler):
     def _experiment_answer(self, body):
         view = self.experiments.answer(body.get("session_id"), body.get("access"),
                                        body.get("perceived_emotion"), body.get("confidence"),
-                                       body.get("response_latency_ms"), body.get("free_text"))
+                                       body.get("response_latency_ms"), body.get("free_text"), body.get("presentation_id"))
         if view.get("status") == "completed":
             self.hardware.stop(body.get("session_id"))
         return view
@@ -447,7 +470,7 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _admin_required(path, query):
-        if path in {"/api/experiment/config", "/api/experiment/default-config", "/api/experiment/hardware/status",
+        if path in {"/api/experiment/clock", "/api/experiment/clock/sync", "/api/experiment/config", "/api/experiment/default-config", "/api/experiment/hardware/status",
                     "/api/experiment/preview", "/api/experiment/sessions"}:
             return True
         if path == "/api/experiment/session":
@@ -475,8 +498,11 @@ def main():
     limits = json.loads((ROOT / "limits.json").read_text())["channels"]
     Handler.controller = Controller(limits)
     Handler.controller.live = LiveController(Handler.controller)
-    Handler.hardware = ExperimentHardware(Handler.controller)
-    Handler.experiments = ExperimentStore()
+    data_dir = Path(os.environ.get("ARIA_EXPERIMENT_DATA_DIR", ROOT / "experiment_data"))
+    Handler.clock = ExperimentClock(data_dir / "clock.json")
+    Handler.hardware = ExperimentHardware(Handler.controller, Handler.clock.now)
+    Handler.experiments = ExperimentStore(data_dir, wall_clock=Handler.clock.now,
+                                         clock_info=lambda: Handler.clock.status()["reference"])
     Handler.admin_token = os.environ.get("ARIA_EXPERIMENT_ADMIN_TOKEN")
     Handler.controller.live.watch()
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()

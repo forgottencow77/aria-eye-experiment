@@ -85,6 +85,32 @@ configuration and never changes that configuration. The admin page shows B₀ ab
 Create and in the session list. Explicit JSON edits must be saved before creating a
 session. This prevents an old 65% page from overwriting the confirmed 40% baseline.
 
+## Answer identity and offline experiment clock
+
+Each presentation attempt has an opaque `presentation_id`, regenerated on replay.
+The participant answer includes that ID. The server rejects missing, superseded,
+and previous-trial IDs before changing a response. Reloading an answer screen
+restores the current ID. New JSON responses/timing events and CSV rows record it;
+old records are not migrated or rewritten.
+
+Open the admin page before an experiment. It checks experiment UTC against the
+operator computer's clock and synchronizes automatically when needed. This works
+without internet. The operator computer's OS clock must itself be correct.
+
+`experiment_clock.py` anchors UTC to monotonic elapsed time. The reference is
+saved in `clock.json` beside `sessions.json` and survives an experiment-server
+restart during the same Pi boot. A new Pi boot invalidates that reference and
+requires the admin page's clock check before experiment actions. A verified clock
+cannot be resynchronized during a running session or live manual control.
+Initial verification after a reboot is allowed before recovering saved sessions
+when no live controller is active.
+
+This is the clock used for new experiment records and hardware-command timestamps.
+It does not grant the web server permission to set the Pi system clock. System
+logs may still require OS time synchronization after offline power cycles. The Pi
+system clock was also corrected during deployment. Session `clock_reference`
+metadata in JSON/CSV records the experiment time source. Past dates are preserved.
+
 ## Inspect all 42 conditions
 
 Open `/study`, then choose **42条件の確認** in the display-mode selector.

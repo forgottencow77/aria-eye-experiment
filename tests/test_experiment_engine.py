@@ -52,12 +52,17 @@ class ExperimentEngineTests(unittest.TestCase):
         self.store.start(session["session_id"], token)
         return session["session_id"], token
 
+    def answer_current(self, session_id, token, *args, **kwargs):
+        current = self.store._session(session_id).get("current_trial") or {}
+        return self.store.answer(session_id, token, *args,
+                                 presentation_id=current.get("presentation_id"), **kwargs)
+
     def complete_current(self, session_id, token, emotion="anger", confidence=3):
         self.store.begin_trial(session_id, token)
         for event in EVENT_ORDER:
             self.store.event(session_id, token, event)
             self.clock.advance(0.5)
-        return self.store.answer(session_id, token, emotion, confidence, 1234)
+        return self.answer_current(session_id, token, emotion, confidence, 1234)
 
     def test_failed_presentation_requires_replay_before_answer(self):
         sid, token = self.create_running()
@@ -66,14 +71,14 @@ class ExperimentEngineTests(unittest.TestCase):
             self.store.event(sid, token, event)
         self.store.record_error(sid, token, "lease lost")
         with self.assertRaises(ExperimentError):
-            self.store.answer(sid, token, "anger", 3, 1000)
+            self.answer_current(sid, token, "anger", 3, 1000)
         with self.assertRaises(ExperimentError):
             self.store.event(sid, token, "response")
         stimulus = self.store.begin_trial(sid, token, replay=True)
         self.assertEqual(stimulus["attempt"], 2)
         for event in EVENT_ORDER:
             self.store.event(sid, token, event)
-        self.store.answer(sid, token, "anger", 3, 1000)
+        self.answer_current(sid, token, "anger", 3, 1000)
         self.assertEqual(self.store._session(sid)["practice"]["errors"][0]["attempt"], 1)
 
     def test_hardware_failure_invalidates_attempt_even_without_client_error_post(self):
@@ -87,7 +92,7 @@ class ExperimentEngineTests(unittest.TestCase):
         self.assertEqual(self.store._session(sid)["current_trial"]["phase"], "error")
         self.assertEqual(self.store._session(sid)["practice"]["status"], "invalid")
         with self.assertRaises(ExperimentError):
-            self.store.answer(sid, token, "anger", 3, 1000)
+            self.answer_current(sid, token, "anger", 3, 1000)
 
     def test_old_session_config_never_overwrites_current_defaults(self):
         old = copy.deepcopy(DEFAULT_CONFIG)
@@ -113,6 +118,35 @@ class ExperimentEngineTests(unittest.TestCase):
         self.assertEqual(session["presentation_protocol"], {"version":2,"instruction_ms":2000,"baseline_wait_ms":0,"transition_ms":500,"hold_ms":5000,"return_ms":500})
         self.assertEqual(self.store.participant_view(sid, token)["baseline"]["eyelid_open_percent"], 40)
         self.assertIn('presentation_protocol', self.store.csv_export(sid).splitlines()[0])
+
+    def test_answer_is_bound_to_trial_and_attempt_and_survives_reload(self):
+        sid, token = self.create_running()
+        self.complete_current(sid, token)  # practice
+        self.store.begin_trial(sid, token)
+        for event in EVENT_ORDER:
+            self.store.event(sid, token, event)
+        old_id = self.store.participant_view(sid, token)["active"]["presentation_id"]
+        self.answer_current(sid, token, "anger", 3, 1000)
+        first = copy.deepcopy(self.store._session(sid)["trials"][0])
+        initial = self.store.begin_trial(sid, token)
+        self.store.record_error(sid, token, "retry")
+        replay = self.store.begin_trial(sid, token, replay=True)
+        self.assertNotEqual(initial["presentation_id"], replay["presentation_id"])
+        for event in EVENT_ORDER:
+            self.store.event(sid, token, event)
+        for stale in [None, old_id, initial["presentation_id"], "invalid"]:
+            before = copy.deepcopy(self.store._session(sid))
+            with self.subTest(stale=stale), self.assertRaises(ExperimentError):
+                self.store.answer(sid, token, "anger", 3, 1000, presentation_id=stale)
+            self.assertEqual(self.store._session(sid), before)
+        reloaded = ExperimentStore(self.temp.name, self.clock.wall, self.clock.monotonic)
+        self.assertEqual(reloaded.participant_view(sid, token)["active"]["presentation_id"], replay["presentation_id"])
+        reloaded.answer(sid, token, "joy", 2, 2000, presentation_id=replay["presentation_id"])
+        self.assertEqual(reloaded._session(sid)["next_index"], 2)
+        self.assertEqual(reloaded._session(sid)["trials"][0], first)
+        self.assertEqual(reloaded._session(sid)["trials"][1]["response"]["presentation_id"], replay["presentation_id"])
+        with self.assertRaises(ExperimentError):
+            reloaded.answer(sid, token, "joy", 2, 2000, presentation_id=replay["presentation_id"])
 
     def test_latest_confirmed_defaults_are_used_and_old_candidate_values_are_not(self):
         self.assertEqual(DEFAULT_CONFIG["emotions"]["anger"]["gaze_vertical_deg"], 0)
@@ -184,10 +218,10 @@ class ExperimentEngineTests(unittest.TestCase):
         for event in EVENT_ORDER:
             self.store.begin_trial(session["session_id"], token) if event == EVENT_ORDER[0] else None
             self.store.event(session["session_id"], token, event)
-        result = self.store.answer(session["session_id"], token, "other", None, 900)
+        result = self.answer_current(session["session_id"], token, "other", None, 900)
         self.assertTrue(result["practice_done"])
         with self.assertRaises(ExperimentError):
-            self.store.answer(session["session_id"], token, "other", 3, 900)
+            self.answer_current(session["session_id"], token, "other", 3, 900)
 
     def test_full_mock_session_persists_42_rows_and_separates_practice(self):
         session_id, token = self.create_running("pilot", 1234)
@@ -203,7 +237,7 @@ class ExperimentEngineTests(unittest.TestCase):
             for event in EVENT_ORDER:
                 self.store.event(session_id, token, event)
                 self.clock.advance(0.5)
-            self.store.answer(session_id, token, emotion, confidence, 1000 + index)
+            self.answer_current(session_id, token, emotion, confidence, 1000 + index)
         exported = self.store.json_export(session_id)
         self.assertEqual(exported["status"], "completed")
         self.assertEqual(exported["mode"], "pilot")

@@ -162,11 +162,12 @@ def generate_trials(config, seed):
 
 
 class ExperimentStore:
-    def __init__(self, data_dir=None, wall_clock=utc_now, monotonic=time.monotonic):
+    def __init__(self, data_dir=None, wall_clock=utc_now, monotonic=time.monotonic, clock_info=None):
         self.data_dir = Path(data_dir or os.environ.get("ARIA_EXPERIMENT_DATA_DIR", Path(__file__).resolve().parent / "experiment_data"))
         self.path = self.data_dir / "sessions.json"
         self.wall_clock = wall_clock
         self.monotonic = monotonic
+        self.clock_info = clock_info or (lambda: None)
         self.lock = threading.RLock()
         self.sessions = {}
         self.current_config = copy.deepcopy(DEFAULT_CONFIG)
@@ -234,6 +235,7 @@ class ExperimentStore:
             "configuration_hash": version_hash,
             "configuration": config,
             "presentation_protocol": copy.deepcopy(PRESENTATION_PROTOCOL),
+            "clock_reference": self.clock_info(),
             "random_seed": str(seed),
             "generated_order": [trial["trial_slot_id"] for trial in order],
             "presentation_order": [trial["trial_slot_id"] for trial in order],
@@ -330,6 +332,7 @@ class ExperimentStore:
                     "visual": copy.deepcopy(current["visual"]),
                     "baseline": copy.deepcopy(session["configuration"]["neutral"]),
                     "attempt": current["attempt"],
+                    "presentation_id": current.get("presentation_id"),
                     "response_elapsed_ms": self._elapsed_ms_since(response_event["at"]) if response_event else 0,
                 }
             return {
@@ -404,6 +407,7 @@ class ExperimentStore:
                 current = session["current_trial"]
                 trial = self._trial_for_current(session, current)
                 current["attempt"] += 1
+                current["presentation_id"] = secrets.token_urlsafe(24)
                 current["phase"] = "instruction"
                 current["phase_index"] = 0
                 current["events"] = []
@@ -436,7 +440,8 @@ class ExperimentStore:
 
     def _new_current(self, kind, values):
         return {"kind": kind, "phase": "instruction", "phase_index": 0, "visual": copy.deepcopy(values),
-                "attempt": 1, "events": [], "started_monotonic": self.monotonic()}
+                "attempt": 1, "presentation_id": secrets.token_urlsafe(24),
+                "events": [], "started_monotonic": self.monotonic()}
 
     @staticmethod
     def _trial_for_current(session, current):
@@ -451,6 +456,7 @@ class ExperimentStore:
     def _stimulus_view(session, current):
         return {"ok": True, "kind": "practice" if current["kind"] == "practice" else "stimulus", "phase": current["phase"],
                 "visual": copy.deepcopy(current["visual"]), "baseline": copy.deepcopy(session["configuration"]["neutral"]), "attempt": current["attempt"],
+                "presentation_id": current.get("presentation_id"),
                 "progress": {"completed": session["next_index"], "total": len(session["trials"])}}
 
     def event(self, session_id, token, name, actuate=None):
@@ -468,7 +474,7 @@ class ExperimentStore:
                 if name in [event["event"] for event in current["events"]]:
                     return {"ok": True, "duplicate": True, "phase": current["phase"]}
                 raise ExperimentError("試行イベントの順序が不正です。")
-            event = {"event": name, "attempt": current["attempt"], "at": self.wall_clock(),
+            event = {"event": name, "attempt": current["attempt"], "presentation_id": current.get("presentation_id"), "at": self.wall_clock(),
                      "monotonic_s": round(self.monotonic() - current["started_monotonic"], 6)}
             if session.get("hardware_mode", "mock") == "hardware":
                 if actuate is None:
@@ -500,7 +506,7 @@ class ExperimentStore:
             self._save()
             return {"ok": True, "phase": current["phase"], "event": event}
 
-    def answer(self, session_id, token, perceived_emotion, confidence, latency_ms, free_text=None):
+    def answer(self, session_id, token, perceived_emotion, confidence, latency_ms, free_text=None, presentation_id=None):
         if perceived_emotion not in EMOTION_NAMES:
             raise ExperimentError("感情回答を選択してください。")
         if perceived_emotion == "other":
@@ -516,8 +522,11 @@ class ExperimentStore:
             current = session.get("current_trial")
             if not current or current["phase"] != "answer":
                 raise ExperimentError("提示を完了してから回答してください。")
+            expected_id = current.get("presentation_id")
+            if not isinstance(presentation_id, str) or not expected_id or not secrets.compare_digest(presentation_id, expected_id):
+                raise ExperimentError("この回答は現在の提示に対応していません。画面を再読み込みしてください。")
             if current["kind"] == "practice":
-                session["practice_response"] = {"perceived_emotion": perceived_emotion, "confidence": confidence,
+                session["practice_response"] = {"presentation_id": presentation_id, "perceived_emotion": perceived_emotion, "confidence": confidence,
                                                 "response_latency_ms": latency_ms, "answered_at": self.wall_clock(), "excluded_from_analysis": True}
             else:
                 trial = self._trial_for_current(session, current)
@@ -525,6 +534,7 @@ class ExperimentStore:
                 timestamps = {event["event"]: event["at"] for event in attempt_events}
                 trial.update({
                     "status": "answered", "response": {
+                        "presentation_id": presentation_id,
                         "emotion_response_at": self.wall_clock(), "perceived_emotion": perceived_emotion,
                         "confidence": confidence, "response_latency_ms": round(latency_ms),
                     },
@@ -611,7 +621,7 @@ class ExperimentStore:
         with self.lock:
             session = self._session(session_id)
             output = io.StringIO(newline="")
-            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "presentation_protocol", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
+            fields = ["session_id", "participant_id", "mode", "hardware_mode", "consent_at", "configuration_version", "configuration_hash", "random_seed", "presentation_index", "trial_slot_id", "intended_emotion", "factors", "physical_state_id", "target_values", "baseline_values", "presentation_protocol", "clock_reference", "presentation_id", "instruction_shown_at", "baseline_at", "transition_started_at", "target_command_at", "target_command_accepted_at", "target_hold_started_at", "return_command_at", "response_screen_at", "emotion_response_at", "perceived_emotion", "confidence", "response_latency_ms", "device_result", "timing_events", "replayed", "attempt_count", "status", "error", "is_practice"]
             writer = csv.DictWriter(output, fieldnames=fields)
             writer.writeheader()
             for trial in session["trials"]:
@@ -625,6 +635,8 @@ class ExperimentStore:
                     "factors": "".join(trial["factors"]), "physical_state_id": trial["physical_state_id"],
                     "target_values": _stable_json(trial["actual_target_values"]), "baseline_values": _stable_json(session["configuration"]["neutral"]),
                     "presentation_protocol": _stable_json(session.get("presentation_protocol")),
+                    "clock_reference": _stable_json(session.get("clock_reference")),
+                    "presentation_id": response.get("presentation_id"),
                     "perceived_emotion": response.get("perceived_emotion"), "confidence": response.get("confidence"),
                     "emotion_response_at": response.get("emotion_response_at"), "response_latency_ms": response.get("response_latency_ms"),
                     "device_result": _stable_json(trial.get("device_result")) if trial.get("device_result") else "",

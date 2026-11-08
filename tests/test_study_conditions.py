@@ -30,3 +30,10 @@ class StudyConditionsTests(unittest.TestCase):
             ['node', 'tests/participant_indicator.cjs'], cwd=Path(__file__).resolve().parents[1],
             text=True, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipUnless(shutil.which('node'), 'Node.js is needed to execute participant UI logic')
+    def test_answer_request_keeps_presentation_identity_after_reload(self):
+        result = subprocess.run(
+            ['node', 'tests/participant_answer_id.cjs'], cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

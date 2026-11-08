@@ -97,6 +97,7 @@ class ExperimentHttpTests(unittest.TestCase):
             self.request("/api/experiment/trial/event", {**args, "event": event})
         _, _, raw = self.request("/api/experiment/answer", {
             **args, "perceived_emotion": "other", "confidence": None, "response_latency_ms": 350,
+            "presentation_id": stimulus["presentation_id"],
         })
         self.assertTrue(json.loads(raw)["practice_done"])
         self.assertEqual(self.hardware.calls, [])
