@@ -14,6 +14,12 @@ The experiment settings are saved on the controller host and shared across brows
 
 ## MacBook to Pi
 
+The configured direct Ethernet link uses Mac `192.168.77.1` and Pi `192.168.77.2`.
+Open <http://192.168.77.2:8767/experiment/admin> or
+<http://192.168.77.2:8767/study>. The Pi-hosted UI starts automatically.
+See [direct Ethernet operation](DIRECT_ETHERNET.md) for wiring, persistent settings,
+data locations, and restoring DHCP when reusing the adapter.
+
 For a direct Ethernet connection, open the Pi's port 8767 from the MacBook browser:
 
 ```text
