@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Aria Servo Micro Adjust</title>
+<style>
+:root { color-scheme: dark; --bg:#111318; --panel:#191c23; --line:#303540; --text:#f2eee7; --muted:#aaa39a; --gold:#f0c64e; --bad:#ef6b5a; --ok:#70d48b; }
+* { box-sizing: border-box; }
+body { margin:0; background: radial-gradient(circle at 60% 20%, #20242d 0, #111318 42%, #0b0c10 100%); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:22px; }
+header { display:flex; justify-content:space-between; gap:16px; align-items:flex-end; margin-bottom:18px; }
+h1 { margin:0; font-size:28px; letter-spacing:0; }
+.sub { color:var(--muted); margin-top:4px; }
+.status { border:1px solid var(--line); background:#12151b; padding:10px 12px; border-radius:6px; min-width:220px; }
+.status b { color:var(--gold); }
+.grid { display:grid; grid-template-columns: repeat(2, minmax(280px,1fr)); gap:14px; }
+.card { background:rgba(25,28,35,.92); border:1px solid var(--line); border-radius:8px; padding:14px; box-shadow:0 12px 32px rgba(0,0,0,.22); }
+.card h2 { margin:0 0 10px; font-size:17px; display:flex; justify-content:space-between; gap:8px; }
+.short { color:var(--gold); font-size:13px; font-weight:700; }
+.value { display:flex; align-items:baseline; gap:8px; margin:8px 0 12px; }
+.us { font-size:34px; font-weight:800; color:#fff; min-width:118px; }
+.range { color:var(--muted); }
+.buttons { display:grid; grid-template-columns: repeat(8, 1fr); gap:7px; }
+button { appearance:none; border:1px solid #5c5129; background:#2a2414; color:#ffe49b; border-radius:6px; padding:10px 8px; font-weight:800; cursor:pointer; min-height:40px; }
+button:hover { background:#3a3118; }
+button:active { transform:translateY(1px); }
+button.center { border-color:#3d526f; background:#172231; color:#bddaff; }
+button.release { border-color:#69433f; background:#2b1717; color:#ffb7ad; }
+.controls { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin:18px 0; }
+.controls button { min-height:48px; font-size:15px; }
+.record { display:flex; gap:8px; margin:14px 0 0; }
+.record input { flex:1; min-width:0; border:1px solid var(--line); background:#101218; color:var(--text); border-radius:6px; padding:0 10px; }
+pre { white-space:pre-wrap; word-break:break-word; color:#d8d1c6; background:#101218; border:1px solid var(--line); padding:12px; border-radius:8px; max-height:220px; overflow:auto; }
+.warn { color:#ffd18c; border-left:3px solid var(--gold); padding-left:10px; margin:12px 0; }
+.anim { display:grid; grid-template-columns: 1.5fr 1.5fr .8fr 1fr 1fr; gap:10px; align-items:end; margin:0 0 18px; padding:14px; border:1px solid var(--line); border-radius:8px; background:rgba(16,18,24,.82); }
+.anim label { display:grid; gap:5px; color:var(--muted); font-size:13px; }
+.anim select,.anim input { width:100%; border:1px solid var(--line); background:#101218; color:var(--text); border-radius:6px; min-height:40px; padding:0 10px; }
+.anim button { min-height:40px; }
+@media (max-width:900px){ .anim{grid-template-columns:1fr 1fr;} }
+@media (max-width:760px){ .grid{grid-template-columns:1fr;} header{display:block;} .controls{grid-template-columns:1fr;} .buttons{grid-template-columns: repeat(4,1fr);} }
+</style>
+</head>
+<body>
+<main>
+<nav style="display:flex;gap:8px;margin-bottom:20px" aria-label="操作モード"><a href="/simple" style="padding:10px 18px;border:1px solid #60666f;border-radius:6px;color:#ddd;text-decoration:none">かんたん操作</a><a href="/" aria-current="page" style="padding:10px 18px;border-radius:6px;color:#151819;background:#f0c64e;text-decoration:none;font-weight:700">細かく調整</a></nav>
+<header>
+  <div>
+    <h1>Servo Micro Adjust</h1>
+    <div class="sub">PCA9685 ch0-5 / 保存済み校正範囲 / 眼球・まぶた</div>
+  </div>
+  <div class="status" id="status">接続中...</div>
+</header>
+<div class="warn">保存済みの左右・上下・開閉端点の範囲で調整します。範囲外の保存姿勢は再生しません。Face Forward は正面・開眼、Release PWM は眼球・まぶた6系統の出力解除です。</div>
+<section class="controls">
+  <button class="center" onclick="centerAll()">Face Forward</button>
+  <button onclick="record()">Record Position</button>
+  <button class="release" onclick="releaseAll()">Release PWM</button>
+</section>
+<section class="anim">
+  <label>From Pose<select id="fromPose"></select></label>
+  <label>To Pose<select id="toPose"></select></label>
+  <label>Duration sec<input id="duration" type="number" value="0.7" min="0.05" max="20" step="0.05"></label>
+  <button onclick="playSaved()">Play From -> To</button>
+  <button onclick="moveCurrentToSaved()">Current -> To</button>
+</section>
+<section class="grid" id="cards"></section>
+<div class="record">
+  <input id="label" placeholder="記録メモ: 例 右目ちょうど中央 / 瞼閉じ気味">
+  <button onclick="record()">Save Memo</button>
+</div>
+<h2>Current Data</h2>
+<pre id="dump"></pre>
+</main>
+<script>
+let state = null;
+const steps = [-200,-100,-50,50,100,200];
+let busy = false;
+function escapeHtml(value){ return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+async function api(path, body=null){
+  const mutating = body !== null;
+  if(mutating && busy) throw new Error("別の操作が完了するまでお待ちください。");
+  if(mutating){ busy = true; document.querySelectorAll('button').forEach(b => b.disabled = true); }
+  try {
+    const opt = mutating ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {};
+    const res = await fetch(path, opt);
+    const result = await res.json();
+    if(!res.ok || result.ok === false) throw new Error(result.error || `HTTP ${res.status}`);
+    return result;
+  } catch(error){
+    if(mutating) alert(error.message);
+    throw error;
+  } finally {
+    if(mutating){ busy = false; document.querySelectorAll('button').forEach(b => b.disabled = false); }
+  }
+}
+function render(){
+  if(!state) return;
+  document.getElementById('status').innerHTML = `<b>live</b><br>${new Date().toLocaleTimeString()}`;
+  const cards = document.getElementById('cards');
+  cards.innerHTML = '';
+  for(const ch of state.channels){
+    const v = state.values[ch.id];
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <h2><span>${ch.name}</span><span class="short">${ch.short}</span></h2>
+      <div class="value"><span class="us">${v}</span><span>us</span><span class="range">${ch.min}-${ch.max}</span></div>
+      <div class="buttons">
+        ${steps.map(s => `<button onclick="nudge(${ch.id},${s})">${s>0?'+':''}${s}</button>`).join('')}
+      </div>
+      <div class="buttons" style="grid-template-columns:1fr 1fr;margin-top:8px">
+        <button class="center" onclick="centerOne(${ch.id})">${ch.home}</button>
+        <button class="release" onclick="releaseOne(${ch.id})">off</button>
+      </div>`;
+    cards.appendChild(div);
+  }
+  renderPoseSelects();
+  document.getElementById('dump').textContent = JSON.stringify(state.values, null, 2) + '\n\nlog: ' + state.log_path;
+}
+function poseText(p){
+  const name = p.label && p.label.trim() ? p.label : `pose ${p.id + 1}`;
+  return `${p.id}: ${name} ${p.time ? '(' + p.time + ')' : ''}`;
+}
+function renderPoseSelects(){
+  const from = document.getElementById('fromPose');
+  const to = document.getElementById('toPose');
+  if(!from || !to || !state.saved_positions) return;
+  const prevFrom = from.value;
+  const prevTo = to.value;
+  from.innerHTML = '<option value="current">current position</option>' + state.saved_positions.map(p => `<option value="${p.id}">${escapeHtml(poseText(p))}</option>`).join('');
+  to.innerHTML = state.saved_positions.map(p => `<option value="${p.id}">${escapeHtml(poseText(p))}</option>`).join('');
+  if([...from.options].some(o => o.value === prevFrom)) from.value = prevFrom;
+  if([...to.options].some(o => o.value === prevTo)) to.value = prevTo;
+  if(!to.value && to.options.length) to.selectedIndex = to.options.length - 1;
+}
+async function refresh(){
+  if(busy) return;
+  try { state = await api('/api/state'); render(); }
+  catch(e){ document.getElementById('status').textContent = 'error: ' + e.message; }
+}
+async function nudge(id, delta){ state = await api('/api/nudge', {channel:id, delta}); render(); }
+async function centerOne(id){ state = await api('/api/center', {channel:id}); render(); }
+async function centerAll(){ state = await api('/api/center', {}); render(); }
+async function releaseOne(id){ state = await api('/api/release', {channel:id}); render(); }
+async function releaseAll(){ state = await api('/api/release', {}); render(); }
+function durationValue(){ return Number(document.getElementById('duration').value || 0.7); }
+async function playSaved(){
+  const from = document.getElementById('fromPose').value;
+  const to = document.getElementById('toPose').value;
+  if(!to){ alert('To poseがない。まずRecord Positionして保存して。'); return; }
+  state = await api('/api/move_saved', {from_id: from, to_id: to, duration: durationValue()});
+  render();
+}
+async function moveCurrentToSaved(){
+  const to = document.getElementById('toPose').value;
+  if(!to){ alert('To poseがない。まずRecord Positionして保存して。'); return; }
+  state = await api('/api/move_saved', {from_id: 'current', to_id: to, duration: durationValue()});
+  render();
+}
+async function record(){
+  const label = document.getElementById('label').value;
+  const out = await api('/api/record', {label});
+  await refresh();
+  document.getElementById('dump').textContent = 'recorded:\n' + JSON.stringify(out.entry, null, 2) + '\n\n' + document.getElementById('dump').textContent;
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
