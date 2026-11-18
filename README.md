@@ -74,6 +74,14 @@ existing wait; API requests show an untimed processing state. The answer screen
 shows that there is no time limit. These are software wait durations, not measured
 mechanical arrival times.
 
+The participant can preview both sounds before practice. A rising cue plays
+after the server acknowledges the baseline instruction and the 2 s wait starts.
+A falling cue plays when the server has accepted the response phase after the
+0.5 s return wait. The answer controls stay in place and enable only when the
+response is ready. Saving an answer starts the next presentation automatically.
+The breaks after trials 14 and 28 still wait for the participant to resume.
+Sounds are generated locally by the browser, so they also work offline.
+
 New sessions snapshot `presentation_protocol`, included in JSON and CSV exports.
 Old completed data are not rewritten. Old sessions with superseded settings/protocol
 cannot newly start; create a new session. A participant page using the old protocol
