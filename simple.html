@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Aria — かんたん操作</title>
+  <link rel="stylesheet" href="/simple.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="brand" href="/simple">ARIA <span>eye control</span></a>
+    <div id="connection" class="connection" role="status">接続を確認中</div>
+  </header>
+  <nav class="modes" aria-label="操作モード">
+    <a href="/simple" aria-current="page">かんたん操作</a>
+    <a href="/" id="advancedLink">細かく調整</a>
+  </nav>
+  <div class="intro"><div><h1>目を、思いのままに。</h1><p>ドラッグで両目の視線。スライダーでまぶた。色もここから。</p></div><span class="tag">両目をいっしょに操作</span></div>
+  <p id="error" role="alert" hidden></p>
+  <div class="layout">
+    <section class="panel gaze-panel" aria-labelledby="gazeTitle">
+      <div class="panel-heading"><h2 id="gazeTitle">視線</h2><button id="center" class="small">正面へ</button></div>
+      <div id="gazePad" role="group" tabindex="0" aria-label="両目の視線。ドラッグまたは矢印キーで動かします。Homeキーで正面。">
+        <span class="direction up">上</span><span class="direction left">左</span><span class="direction right">右</span><span class="direction down">下</span>
+        <div class="cross horizontal"></div><div class="cross vertical"></div>
+        <div class="eyes" aria-hidden="true">
+          <div class="eye"><div class="iris"><div class="pupil"></div><div class="shine"></div></div><div class="lid top"></div><div class="lid bottom"></div></div>
+          <div class="eye"><div class="iris"><div class="pupil"></div><div class="shine"></div></div><div class="lid top"></div><div class="lid bottom"></div></div>
+        </div>
+        <div id="target" aria-hidden="true"></div>
+        <span class="drag-hint">この中をドラッグ</span>
+      </div>
+      <div class="axis-sliders">
+        <label for="gazeX">左右 <output id="xValue">正面</output></label>
+        <input id="gazeX" type="range" min="-100" max="100" value="0" step="1">
+        <div class="ends"><span>左</span><span>右</span></div>
+        <label for="gazeY">上下 <output id="yValue">正面</output></label>
+        <input id="gazeY" type="range" min="-100" max="100" value="0" step="1">
+        <div class="ends"><span>下</span><span>上</span></div>
+      </div>
+    </section>
+    <div class="side">
+      <section class="panel" aria-labelledby="lidTitle">
+        <div class="panel-heading"><h2 id="lidTitle">まぶた</h2><output id="lidValue" class="large-value">100<span>%</span></output></div>
+        <label class="sr-only" for="openness">まぶたの開き</label>
+        <input id="openness" type="range" min="0" max="100" value="100" step="1">
+        <div class="ends"><span>閉じる</span><span>開く</span></div>
+        <div class="lid-actions"><button id="closeLids">閉じる</button><button id="halfLids">半分</button><button id="openLids">開く</button></div>
+      </section>
+      <section class="panel" aria-labelledby="colorTitle">
+        <div class="panel-heading"><h2 id="colorTitle">目の色</h2><span class="muted">左右共通</span></div>
+        <div class="swatches" role="group" aria-label="目の色のプリセット">
+          <button class="swatch" data-color="#EAA636" style="--swatch:#EAA636" aria-label="金色"></button>
+          <button class="swatch" data-color="#4C9FEA" style="--swatch:#4C9FEA" aria-label="青"></button>
+          <button class="swatch" data-color="#59C7A4" style="--swatch:#59C7A4" aria-label="緑"></button>
+          <button class="swatch" data-color="#AA80E8" style="--swatch:#AA80E8" aria-label="紫"></button>
+          <button class="swatch" data-color="#EE92BC" style="--swatch:#EE92BC" aria-label="ピンク"></button>
+          <button class="swatch" data-color="#E45459" style="--swatch:#E45459" aria-label="赤"></button>
+          <button class="swatch" data-color="#FFFFFF" style="--swatch:#FFFFFF" aria-label="白"></button>
+        </div>
+        <label class="custom-color" for="irisColor"><span>自由な色を選ぶ<small id="colorValue">標準の色</small></span><input type="color" id="irisColor" value="#eaa636"></label>
+        <button id="defaultColor" class="text-button">標準の色に戻す</button>
+      </section>
+      <section class="session-actions">
+        <button id="finish" disabled>操作を終える</button>
+        <button id="release" class="release">力を抜く <kbd>Esc</kbd></button>
+      </section>
+    </div>
+  </div>
+  <footer><span id="activity">操作するまで実機は動きません。</span><p>操作を終えると、視線は正面・まぶたは開いた位置に戻ります。色はそのまま残ります。保存済みの可動範囲内で動作します。</p></footer>
+</main>
+<script type="module" src="/simple.js"></script>
+</body>
+</html>
